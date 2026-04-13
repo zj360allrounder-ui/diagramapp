@@ -608,6 +608,12 @@ export const ICON_BY_KEY = {
     hex: 'd97706',
     path: 'M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z',
   },
+  diagram_text: {
+    kind: 'path',
+    title: 'Text note',
+    hex: '475569',
+    path: 'M5 5h14v2H5V5zm0 4h14v2H5V9zm0 4h11v2H5v-2zm0 4h14v2H5v-2z',
+  },
   ...mapAwsArch('ArtificialIntelligence', AWS_AI_MAP),
   ...mapAwsArch('Analytics', AWS_ANALYTICS_MAP),
   ...mapAwsArch('ApplicationIntegration', AWS_INTEGRATION_MAP),
@@ -1131,6 +1137,12 @@ export const PALETTE_GROUPS = [
   {
     title: 'Generic',
     items: [
+      {
+        iconKey: 'diagram_text',
+        defaultLabel: 'Text note',
+        nodeType: 'text',
+        search: 'annotation caption label multiline type free floating',
+      },
       { iconKey: 'service', defaultLabel: 'Service' },
       { iconKey: 'api', defaultLabel: 'REST / API' },
       { iconKey: 'queue', defaultLabel: 'Queue / worker' },

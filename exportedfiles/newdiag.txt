@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": 337,
+        "y": 315.1015625
+      },
+      "data": {
+        "label": "Amazon MWAA",
+        "iconKey": "awsint_mwaa"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": 341.25,
+        "y": 209.90234375
+      },
+      "data": {
+        "label": "Serverless Framework",
+        "iconKey": "serverless_framework"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "xy-edge__n-1pt-top-n-2pt-bottom",
+      "source": "n-1",
+      "target": "n-2",
+      "sourceHandle": "pt-top",
+      "targetHandle": "pt-bottom",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    }
+  ]
+}

@@ -2,6 +2,8 @@ import dagre from '@dagrejs/dagre';
 
 const DEFAULT_W = 168;
 const DEFAULT_H = 92;
+const TEXT_W = 240;
+const TEXT_H = 96;
 
 /**
  * @param {import('@xyflow/react').Node[]} nodes
@@ -22,8 +24,9 @@ export function layoutWithDagre(nodes, edges, direction = 'TB') {
   });
 
   for (const node of nodes) {
-    const w = node.measured?.width ?? DEFAULT_W;
-    const h = node.measured?.height ?? DEFAULT_H;
+    const isText = node.type === 'text';
+    const w = node.measured?.width ?? (isText ? TEXT_W : DEFAULT_W);
+    const h = node.measured?.height ?? (isText ? TEXT_H : DEFAULT_H);
     g.setNode(node.id, { width: w, height: h });
   }
 
@@ -38,8 +41,9 @@ export function layoutWithDagre(nodes, edges, direction = 'TB') {
   return nodes.map((node) => {
     const n = g.node(node.id);
     if (n === undefined) return node;
-    const w = node.measured?.width ?? DEFAULT_W;
-    const h = node.measured?.height ?? DEFAULT_H;
+    const isText = node.type === 'text';
+    const w = node.measured?.width ?? (isText ? TEXT_W : DEFAULT_W);
+    const h = node.measured?.height ?? (isText ? TEXT_H : DEFAULT_H);
     return {
       ...node,
       position: { x: n.x - w / 2, y: n.y - h / 2 },

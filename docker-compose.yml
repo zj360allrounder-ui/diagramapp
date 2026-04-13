@@ -1,0 +1,16 @@
+# jarus Diagram — production UI + API on port 3000
+# Diagram JSON files persist under ./exportedfiles on the host (bind mount).
+
+services:
+  jarus-diagram:
+    build: .
+    image: jarus-diagram:latest
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Host path for saved diagrams (.txt JSON) and .backups; created by run-docker.sh if missing
+      - ${EXPORT_DIR:-./exportedfiles}:/app/exportedfiles
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

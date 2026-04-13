@@ -22,7 +22,11 @@ function PaletteTile({ item }) {
       className="palette-tile"
       draggable
       onDragStart={(e) =>
-        onDragPaletteStart(e, { iconKey: item.iconKey, label: item.defaultLabel })
+        onDragPaletteStart(e, {
+          iconKey: item.iconKey,
+          label: item.defaultLabel,
+          ...(item.nodeType ? { nodeType: item.nodeType } : {}),
+        })
       }
       title={`Drag to canvas: ${item.defaultLabel}`}
     >

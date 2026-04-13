@@ -14,6 +14,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { toPng, toSvg } from 'html-to-image';
 import ServiceNode from './ServiceNode.jsx';
+import TextNode from './TextNode.jsx';
 import IconPalette, { DND_TYPE } from './IconPalette.jsx';
 import { DEFAULT_ICON_KEY } from '../lib/iconRegistry.js';
 import { layoutWithDagre } from '../lib/layoutGraph.js';
@@ -32,7 +33,8 @@ function getEdgePalette(theme) {
   const stroke = isLight ? '#475569' : '#64748b';
   return {
     stroke,
-    style: { stroke, strokeWidth: 2 },
+    /* Inline dash clears RF’s `.animated` dashed CSS when that class is present */
+    style: { stroke, strokeWidth: 2, strokeDasharray: 'none' },
     markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
     labelStyle: { fill: isLight ? '#1e293b' : '#e2e8f0', fontSize: 11, fontWeight: 500 },
     labelBgStyle: { fill: isLight ? '#ffffff' : '#1a1f2e', fillOpacity: 0.95 },
@@ -41,7 +43,59 @@ function getEdgePalette(theme) {
   };
 }
 
-const nodeTypes = { service: ServiceNode };
+const nodeTypes = { service: ServiceNode, text: TextNode };
+
+/** Synthetic edge ids: removing them clears `data.parentNodeId` on the child node. */
+const PARENT_EDGE_PREFIX = 'parent-link-';
+
+function wouldCreateParentCycle(nodes, nodeId, newParentId) {
+  if (!newParentId || newParentId === nodeId) return true;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  let cur = newParentId;
+  const seen = new Set();
+  while (cur) {
+    if (cur === nodeId) return true;
+    if (seen.has(cur)) break;
+    seen.add(cur);
+    cur = byId.get(cur)?.data?.parentNodeId;
+  }
+  return false;
+}
+
+function nodeMenuLabel(n) {
+  if (n.type === 'text') {
+    const t = (n.data?.text ?? '').trim().split(/\n/)[0] || 'Text note';
+    return t.length > 40 ? `${t.slice(0, 37)}…` : t;
+  }
+  return n.data?.label ?? 'Service';
+}
+
+function buildParentEdges(nodes, edgePalette, manualEdges) {
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const manualKey = new Set(manualEdges.map((e) => `${e.source}\t${e.target}`));
+  const out = [];
+  for (const n of nodes) {
+    const pid = n.data?.parentNodeId;
+    if (!pid || pid === n.id || !nodeIds.has(pid)) continue;
+    if (manualKey.has(`${pid}\t${n.id}`)) continue;
+    out.push({
+      id: `${PARENT_EDGE_PREFIX}${n.id}`,
+      source: pid,
+      target: n.id,
+      sourceHandle: 'pt-bottom',
+      targetHandle: 'pt-top',
+      type: 'smoothstep',
+      animated: false,
+      style: { ...edgePalette.style, strokeDasharray: 'none' },
+      markerEnd: edgePalette.markerEnd,
+      labelStyle: edgePalette.labelStyle,
+      labelBgStyle: edgePalette.labelBgStyle,
+      labelBgPadding: edgePalette.labelBgPadding,
+      labelBgBorderRadius: edgePalette.labelBgBorderRadius,
+    });
+  }
+  return out;
+}
 
 let idSeq = 0;
 function nextId() {
@@ -60,15 +114,30 @@ function syncIdSeqFromNodes(nodes) {
 function serializeDiagram(nodes, edges) {
   return {
     version: 1,
-    nodes: nodes.map(({ id, type, position, data }) => ({
-      id,
-      type: type || 'service',
-      position,
-      data: {
-        label: data?.label ?? 'Service',
-        iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
-      },
-    })),
+    nodes: nodes.map(({ id, type, position, data }) => {
+      const t = type || 'service';
+      if (t === 'text') {
+        return {
+          id,
+          type: 'text',
+          position,
+          data: {
+            text: data?.text ?? '',
+            ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
+          },
+        };
+      }
+      return {
+        id,
+        type: 'service',
+        position,
+        data: {
+          label: data?.label ?? 'Service',
+          iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
+          ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
+        },
+      };
+    }),
     edges: edges.map(
       ({ id, source, target, sourceHandle, targetHandle, type, label, style, labelStyle, labelBgStyle }) => ({
         id,
@@ -131,15 +200,30 @@ function migrateEdgeHandles(edge) {
 
 function diagramDataToFlowState(data, theme) {
   const ep = getEdgePalette(theme);
-  const nextNodes = data.nodes.map((n) => ({
-    id: String(n.id),
-    type: n.type || 'service',
-    position: n.position || { x: 0, y: 0 },
-    data: {
-      label: n.data?.label ?? 'Service',
-      iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
-    },
-  }));
+  const nextNodes = data.nodes.map((n) => {
+    const t = n.type || 'service';
+    if (t === 'text') {
+      return {
+        id: String(n.id),
+        type: 'text',
+        position: n.position || { x: 0, y: 0 },
+        data: {
+          text: n.data?.text ?? n.data?.label ?? 'Double-click to edit',
+          ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
+        },
+      };
+    }
+    return {
+      id: String(n.id),
+      type: 'service',
+      position: n.position || { x: 0, y: 0 },
+      data: {
+        label: n.data?.label ?? 'Service',
+        iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
+        ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
+      },
+    };
+  });
   const nextEdges = data.edges.map((ed, i) =>
     migrateEdgeHandles({
       ...ed,
@@ -163,17 +247,56 @@ function FlowWorkspace() {
 
   const containerRef = useRef(null);
   const importInputRef = useRef(null);
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, getIntersectingNodes, getNodes } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChangeBase] = useEdgesState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+
+  const edgesWithParents = useMemo(
+    () => [...edges, ...buildParentEdges(nodes, edgePalette, edges)],
+    [nodes, edges, edgePalette]
+  );
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-  const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
+  const selectedEdge = useMemo(() => {
+    if (!selectedEdgeId) return undefined;
+    const manual = edges.find((e) => e.id === selectedEdgeId);
+    if (manual) return manual;
+    if (String(selectedEdgeId).startsWith(PARENT_EDGE_PREFIX)) {
+      return edgesWithParents.find((e) => e.id === selectedEdgeId);
+    }
+    return undefined;
+  }, [edges, edgesWithParents, selectedEdgeId]);
+
+  const onEdgesChange = useCallback(
+    (changes) => {
+      const parentRemovals = [];
+      const rest = [];
+      for (const c of changes) {
+        if (c.type === 'remove' && String(c.id).startsWith(PARENT_EDGE_PREFIX)) {
+          parentRemovals.push(c);
+        } else {
+          rest.push(c);
+        }
+      }
+      for (const c of parentRemovals) {
+        const childId = String(c.id).slice(PARENT_EDGE_PREFIX.length);
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === childId ? { ...n, data: { ...n.data, parentNodeId: undefined } } : n
+          )
+        );
+      }
+      if (rest.length) onEdgesChangeBase(rest);
+    },
+    [onEdgesChangeBase, setNodes]
+  );
 
   const defaultEdgeOptions = useMemo(
     () => ({
       type: 'smoothstep',
+      animated: false,
       style: edgePalette.style,
       markerEnd: edgePalette.markerEnd,
       labelStyle: edgePalette.labelStyle,
@@ -188,7 +311,13 @@ function FlowWorkspace() {
     setEdges((eds) =>
       eds.map((e) => ({
         ...e,
-        style: { ...(e.style || {}), stroke: edgePalette.stroke, strokeWidth: e.style?.strokeWidth ?? 2 },
+        animated: false,
+        style: {
+          ...(e.style || {}),
+          stroke: edgePalette.stroke,
+          strokeWidth: e.style?.strokeWidth ?? 2,
+          strokeDasharray: 'none',
+        },
         markerEnd: { type: MarkerType.ArrowClosed, color: edgePalette.stroke },
         labelStyle: { ...edgePalette.labelStyle, ...e.labelStyle, fill: edgePalette.labelStyle.fill },
         labelBgStyle: {
@@ -243,7 +372,25 @@ function FlowWorkspace() {
         return;
       }
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const currentNodes = getNodes();
+      const hitRect = { x: position.x - 8, y: position.y - 8, width: 16, height: 16 };
+      const under = getIntersectingNodes(hitRect, true, currentNodes);
+      const dropParentId =
+        under.length > 0 ? under[under.length - 1]?.id : undefined;
       const id = nextId();
+      const parentNodeId = dropParentId || undefined;
+
+      if (item.nodeType === 'text') {
+        setNodes((nds) =>
+          nds.concat({
+            id,
+            type: 'text',
+            position,
+            data: { text: 'Type your note…', ...(parentNodeId ? { parentNodeId } : {}) },
+          })
+        );
+        return;
+      }
       setNodes((nds) =>
         nds.concat({
           id,
@@ -252,28 +399,47 @@ function FlowWorkspace() {
           data: {
             label: item.label || 'Service',
             iconKey: item.iconKey || DEFAULT_ICON_KEY,
+            ...(parentNodeId ? { parentNodeId } : {}),
           },
         })
       );
     },
-    [screenToFlowPosition, setNodes]
+    [screenToFlowPosition, setNodes, getNodes, getIntersectingNodes]
   );
 
   const updateSelectedLabel = useCallback(
-    (label) => {
+    (value) => {
       if (!selectedNodeId) return;
       setNodes((nds) =>
-        nds.map((n) =>
-          n.id === selectedNodeId ? { ...n, data: { ...n.data, label } } : n
-        )
+        nds.map((n) => {
+          if (n.id !== selectedNodeId) return n;
+          if (n.type === 'text') {
+            return { ...n, data: { ...n.data, text: value } };
+          }
+          return { ...n, data: { ...n.data, label: value } };
+        })
       );
     },
     [selectedNodeId, setNodes]
   );
 
+  const setSelectedParent = useCallback(
+    (parentId) => {
+      if (!selectedNodeId) return;
+      const next = parentId || undefined;
+      if (next && wouldCreateParentCycle(nodes, selectedNodeId, next)) return;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === selectedNodeId ? { ...n, data: { ...n.data, parentNodeId: next } } : n
+        )
+      );
+    },
+    [selectedNodeId, nodes, setNodes]
+  );
+
   const updateSelectedEdgeLabel = useCallback(
     (label) => {
-      if (!selectedEdgeId) return;
+      if (!selectedEdgeId || String(selectedEdgeId).startsWith(PARENT_EDGE_PREFIX)) return;
       const trimmed = label.trim();
       setEdges((eds) =>
         eds.map((e) =>
@@ -294,11 +460,11 @@ function FlowWorkspace() {
   );
 
   const runAutoLayout = useCallback(() => {
-    setNodes((nds) => layoutWithDagre(nds, edges, 'TB'));
+    setNodes((nds) => layoutWithDagre(nds, edgesWithParents, 'TB'));
     window.setTimeout(() => {
       fitView({ padding: 0.2, duration: 280 });
     }, 120);
-  }, [edges, setNodes, fitView]);
+  }, [edgesWithParents, setNodes, fitView]);
 
   const clearCanvas = useCallback(() => {
     setNodes([]);
@@ -309,9 +475,15 @@ function FlowWorkspace() {
   }, [setNodes, setEdges]);
 
   const renameNodeById = useCallback(
-    (nodeId, label) => {
+    (nodeId, value) => {
       setNodes((nds) =>
-        nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, label } } : n))
+        nds.map((n) => {
+          if (n.id !== nodeId) return n;
+          if (n.type === 'text') {
+            return { ...n, data: { ...n.data, text: value } };
+          }
+          return { ...n, data: { ...n.data, label: value } };
+        })
       );
     },
     [setNodes]
@@ -515,7 +687,7 @@ function FlowWorkspace() {
         >
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={edgesWithParents}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -596,37 +768,86 @@ function FlowWorkspace() {
           <h3>Selection</h3>
           {selectedNode ? (
             <>
+              {selectedNode.type === 'text' ? (
+                <>
+                  <label className="diagram-inspector__field">
+                    <span>Text</span>
+                    <textarea
+                      className="diagram-inspector__textarea nodrag"
+                      rows={8}
+                      value={selectedNode.data.text ?? ''}
+                      onChange={(e) => updateSelectedLabel(e.target.value)}
+                      placeholder="Multi-line note on the diagram…"
+                    />
+                  </label>
+                  <p className="diagram-inspector__hint">
+                    Double-click the box on the canvas to edit inline. Supports line breaks.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label className="diagram-inspector__field">
+                    <span>Node label</span>
+                    <input
+                      type="text"
+                      value={selectedNode.data.label ?? ''}
+                      onChange={(e) => updateSelectedLabel(e.target.value)}
+                    />
+                  </label>
+                  <p className="diagram-inspector__hint">
+                    Or double-click the node on the canvas. Icon is fixed unless you replace the node from the
+                    library.
+                  </p>
+                </>
+              )}
               <label className="diagram-inspector__field">
-                <span>Node label</span>
-                <input
-                  type="text"
-                  value={selectedNode.data.label ?? ''}
-                  onChange={(e) => updateSelectedLabel(e.target.value)}
-                />
+                <span>Parent</span>
+                <select
+                  className="nodrag"
+                  value={selectedNode.data.parentNodeId ?? ''}
+                  onChange={(e) => setSelectedParent(e.target.value)}
+                >
+                  <option value="">None</option>
+                  {nodes
+                    .filter((n) => n.id !== selectedNode.id)
+                    .filter((n) => !wouldCreateParentCycle(nodes, selectedNode.id, n.id))
+                    .map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {nodeMenuLabel(n)}
+                      </option>
+                    ))}
+                </select>
               </label>
               <p className="diagram-inspector__hint">
-                Or double-click the node on the canvas. Icon is fixed unless you replace the node from the
-                library.
+                Draws an arrow from parent (bottom) to this node (top). You can still add manual connectors
+                for APIs and data flow. Drop a new icon onto an existing node to attach it as a child.
               </p>
             </>
           ) : selectedEdge ? (
-            <>
-              <label className="diagram-inspector__field">
-                <span>Edge label (e.g. API name)</span>
-                <input
-                  type="text"
-                  value={selectedEdge.label ?? ''}
-                  placeholder="HTTPS / gRPC / topic name…"
-                  onChange={(e) => updateSelectedEdgeLabel(e.target.value)}
-                />
-              </label>
+            String(selectedEdge.id).startsWith(PARENT_EDGE_PREFIX) ? (
               <p className="diagram-inspector__hint">
-                Appears on the connector. Leave empty to hide the label.
+                This is the automatic <strong>parent</strong> link. Change it under the child node’s{' '}
+                <strong>Parent</strong> field, or select this edge and press Delete to clear the parent.
               </p>
-            </>
+            ) : (
+              <>
+                <label className="diagram-inspector__field">
+                  <span>Edge label (e.g. API name)</span>
+                  <input
+                    type="text"
+                    value={selectedEdge.label ?? ''}
+                    placeholder="HTTPS / gRPC / topic name…"
+                    onChange={(e) => updateSelectedEdgeLabel(e.target.value)}
+                  />
+                </label>
+                <p className="diagram-inspector__hint">
+                  Appears on the connector. Leave empty to hide the label.
+                </p>
+              </>
+            )
           ) : (
             <p className="diagram-inspector__empty">
-              Select a single node or edge to edit its label.
+              Select a single node or edge to edit its label or text.
             </p>
           )}
 
@@ -697,10 +918,15 @@ function FlowWorkspace() {
             <ul>
               <li>{'Drag from a node handle to another node\u2019s handle to connect (any side).'}</li>
               <li>
+                Use <strong>Parent</strong> on a selected node (or drop an icon onto another) for a hierarchy
+                line without drawing it by hand.
+              </li>
+              <li>
                 <strong>Layout</strong> arranges the graph automatically (Dagre, top → bottom).
               </li>
               <li>
-                <strong>Double-click</strong> a node to rename it inline (Enter saves, Esc cancels).
+                <strong>Double-click</strong> a service node to rename it (Enter saves, Esc cancels);{' '}
+                <strong>Text note</strong> nodes use a multi-line editor (Esc cancels).
               </li>
               <li>
                 <strong>PNG 4K</strong> exports at least UHD resolution so zoomed screenshots stay sharp.

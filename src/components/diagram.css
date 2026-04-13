@@ -393,6 +393,28 @@
   border-color: var(--jd-accent);
 }
 
+.diagram-inspector__textarea {
+  display: block;
+  width: 100%;
+  min-height: 6rem;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--jd-border-input);
+  background: var(--jd-bg-raised);
+  color: var(--jd-text);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.diagram-inspector__textarea:focus {
+  outline: none;
+  border-color: var(--jd-accent);
+}
+
 .diagram-inspector__hint {
   margin: 0.65rem 0 0;
   font-size: 0.6875rem;
@@ -508,6 +530,63 @@
   color: var(--jd-text-muted);
 }
 
+.text-node {
+  position: relative;
+}
+
+.text-node__body {
+  min-width: 180px;
+  max-width: 320px;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--jd-bg-panel);
+  border: 1px solid var(--jd-border-input);
+  box-shadow: 0 4px 16px var(--jd-shadow);
+}
+
+.text-node--selected .text-node__body {
+  border-color: var(--jd-accent);
+  box-shadow: 0 0 0 1px var(--jd-accent), 0 4px 16px var(--jd-accent-shadow-soft);
+}
+
+.text-node__content {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--jd-text);
+  min-height: 1.25rem;
+}
+
+.text-node__content--placeholder {
+  color: var(--jd-text-dim);
+  font-style: italic;
+}
+
+.text-node__input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 5rem;
+  margin: 0;
+  padding: 0.35rem 0.4rem;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--jd-text);
+  background: var(--jd-bg-input);
+  border: 1px solid var(--jd-accent);
+  border-radius: 6px;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.text-node__input:focus {
+  border-color: var(--jd-accent-hover);
+  box-shadow: 0 0 0 1px var(--jd-accent-shadow-2);
+}
+
 .service-node {
   position: relative;
 }
@@ -601,6 +680,14 @@
   right: -4px !important;
 }
 
-.react-flow__edge-path {
+/* Solid connectors: React Flow’s default `.react-flow__edge.animated` uses dashed strokes + animation. */
+.diagram-flow-wrap .react-flow__edge-path {
   stroke-width: 2;
+  stroke-dasharray: none !important;
+  animation: none !important;
+}
+
+.diagram-flow-wrap .react-flow__connection-path {
+  stroke-dasharray: none !important;
+  animation: none !important;
 }
