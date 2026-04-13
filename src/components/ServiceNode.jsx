@@ -34,12 +34,36 @@ function ServiceNode({ id, data, selected }) {
     [data.label]
   );
 
+  /** One handle per side; `ConnectionMode.Loose` on the canvas allows source↔source links. */
+  const h = 'service-node__handle';
   return (
     <div className={`service-node ${selected ? 'service-node--selected' : ''}`}>
       <Handle
-        className="service-node__handle service-node__handle--target"
-        type="target"
+        className={`${h} ${h}--at-top`}
+        type="source"
         position={Position.Top}
+        id="pt-top"
+        isConnectable
+      />
+      <Handle
+        className={`${h} ${h}--at-right`}
+        type="source"
+        position={Position.Right}
+        id="pt-right"
+        isConnectable
+      />
+      <Handle
+        className={`${h} ${h}--at-bottom`}
+        type="source"
+        position={Position.Bottom}
+        id="pt-bottom"
+        isConnectable
+      />
+      <Handle
+        className={`${h} ${h}--at-left`}
+        type="source"
+        position={Position.Left}
+        id="pt-left"
         isConnectable
       />
       <div className="service-node__body" onDoubleClick={startEdit} title="Double-click to rename">
@@ -75,12 +99,6 @@ function ServiceNode({ id, data, selected }) {
           <div className="service-node__label">{data.label}</div>
         )}
       </div>
-      <Handle
-        className="service-node__handle service-node__handle--source"
-        type="source"
-        position={Position.Bottom}
-        isConnectable
-      />
     </div>
   );
 }

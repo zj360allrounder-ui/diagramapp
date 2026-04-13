@@ -10,6 +10,7 @@ import {
   useEdgesState,
   useReactFlow,
   MarkerType,
+  ConnectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng, toSvg } from 'html-to-image';
@@ -95,6 +96,32 @@ function clientSafeStem(name) {
   return base;
 }
 
+/** Old two-handle-per-side ids → unified per-side `pt-*` ids (see ServiceNode). */
+const LEGACY_HANDLE_TO_POINT = {
+  't-top': 'pt-top',
+  't-right': 'pt-right',
+  't-bottom': 'pt-bottom',
+  't-left': 'pt-left',
+  's-top': 'pt-top',
+  's-right': 'pt-right',
+  's-bottom': 'pt-bottom',
+  's-left': 'pt-left',
+};
+
+function migrateEdgeHandles(edge) {
+  const src = edge.sourceHandle;
+  const tgt = edge.targetHandle;
+  const sourceHandle =
+    src == null || src === ''
+      ? 'pt-bottom'
+      : LEGACY_HANDLE_TO_POINT[src] ?? src;
+  const targetHandle =
+    tgt == null || tgt === ''
+      ? 'pt-top'
+      : LEGACY_HANDLE_TO_POINT[tgt] ?? tgt;
+  return { ...edge, sourceHandle, targetHandle };
+}
+
 function diagramDataToFlowState(data) {
   const nextNodes = data.nodes.map((n) => ({
     id: String(n.id),
@@ -105,16 +132,18 @@ function diagramDataToFlowState(data) {
       iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
     },
   }));
-  const nextEdges = data.edges.map((ed, i) => ({
-    ...ed,
-    id: ed.id != null ? String(ed.id) : `e-${Date.now()}-${i}`,
-    type: ed.type || 'smoothstep',
-    style: ed.style || { stroke: '#64748b', strokeWidth: 2 },
-    markerEnd: ed.markerEnd || { type: MarkerType.ArrowClosed, color: '#64748b' },
-    ...edgeLabelDefaults,
-    labelStyle: ed.labelStyle ?? edgeLabelDefaults.labelStyle,
-    labelBgStyle: ed.labelBgStyle ?? edgeLabelDefaults.labelBgStyle,
-  }));
+  const nextEdges = data.edges.map((ed, i) =>
+    migrateEdgeHandles({
+      ...ed,
+      id: ed.id != null ? String(ed.id) : `e-${Date.now()}-${i}`,
+      type: ed.type || 'smoothstep',
+      style: ed.style || { stroke: '#64748b', strokeWidth: 2 },
+      markerEnd: ed.markerEnd || { type: MarkerType.ArrowClosed, color: '#64748b' },
+      ...edgeLabelDefaults,
+      labelStyle: ed.labelStyle ?? edgeLabelDefaults.labelStyle,
+      labelBgStyle: ed.labelBgStyle ?? edgeLabelDefaults.labelBgStyle,
+    })
+  );
   return { nextNodes, nextEdges };
 }
 
@@ -438,6 +467,7 @@ function FlowWorkspace() {
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
+            connectionMode={ConnectionMode.Loose}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             defaultEdgeOptions={{

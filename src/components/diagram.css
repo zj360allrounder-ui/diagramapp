@@ -457,12 +457,21 @@
   background: #64748b !important;
 }
 
-.service-node__handle--target {
+/* Nudge handles slightly outside the node on each side */
+.service-node__handle--at-top {
   top: -4px !important;
 }
 
-.service-node__handle--source {
+.service-node__handle--at-bottom {
   bottom: -4px !important;
+}
+
+.service-node__handle--at-left {
+  left: -4px !important;
+}
+
+.service-node__handle--at-right {
+  right: -4px !important;
 }
 
 .react-flow__edge-path {
