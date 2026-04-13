@@ -1,4 +1,4 @@
-# Cloud Diagram Studio
+# jarus Diagram
 
 Local web app for **cloud architecture** and **service dependency** diagrams. Drag nodes with **Kubernetes**, **AWS**, **GCP**, and common data-plane icons, connect **parent → child** handles manually, then export **PNG**, **SVG**, or **JSON**.
 

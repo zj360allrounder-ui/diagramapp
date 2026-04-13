@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
-  Background,
   Controls,
   MiniMap,
   addEdge,
@@ -19,6 +18,7 @@ import IconPalette, { DND_TYPE } from './IconPalette.jsx';
 import { DEFAULT_ICON_KEY } from '../lib/iconRegistry.js';
 import { layoutWithDagre } from '../lib/layoutGraph.js';
 import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import './diagram.css';
 
 /** Minimum export size (UHD 4K) so raster output stays sharp when zoomed in viewers. */
@@ -27,12 +27,19 @@ const EXPORT_MIN_HEIGHT = 2160;
 /** Avoid runaway memory on pathological sizes; 48× still reaches 4K from an ~80px-wide panel. */
 const EXPORT_MAX_PIXEL_RATIO = 48;
 
-const edgeLabelDefaults = {
-  labelStyle: { fill: '#e2e8f0', fontSize: 11, fontWeight: 500 },
-  labelBgStyle: { fill: '#1a1f2e', fillOpacity: 0.95 },
-  labelBgPadding: [4, 8],
-  labelBgBorderRadius: 6,
-};
+function getEdgePalette(theme) {
+  const isLight = theme === 'light';
+  const stroke = isLight ? '#475569' : '#64748b';
+  return {
+    stroke,
+    style: { stroke, strokeWidth: 2 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
+    labelStyle: { fill: isLight ? '#1e293b' : '#e2e8f0', fontSize: 11, fontWeight: 500 },
+    labelBgStyle: { fill: isLight ? '#ffffff' : '#1a1f2e', fillOpacity: 0.95 },
+    labelBgPadding: [4, 8],
+    labelBgBorderRadius: 6,
+  };
+}
 
 const nodeTypes = { service: ServiceNode };
 
@@ -122,7 +129,8 @@ function migrateEdgeHandles(edge) {
   return { ...edge, sourceHandle, targetHandle };
 }
 
-function diagramDataToFlowState(data) {
+function diagramDataToFlowState(data, theme) {
+  const ep = getEdgePalette(theme);
   const nextNodes = data.nodes.map((n) => ({
     id: String(n.id),
     type: n.type || 'service',
@@ -137,17 +145,22 @@ function diagramDataToFlowState(data) {
       ...ed,
       id: ed.id != null ? String(ed.id) : `e-${Date.now()}-${i}`,
       type: ed.type || 'smoothstep',
-      style: ed.style || { stroke: '#64748b', strokeWidth: 2 },
-      markerEnd: ed.markerEnd || { type: MarkerType.ArrowClosed, color: '#64748b' },
-      ...edgeLabelDefaults,
-      labelStyle: ed.labelStyle ?? edgeLabelDefaults.labelStyle,
-      labelBgStyle: ed.labelBgStyle ?? edgeLabelDefaults.labelBgStyle,
+      style: ep.style,
+      markerEnd: ep.markerEnd,
+      labelStyle: ep.labelStyle,
+      labelBgStyle: ep.labelBgStyle,
+      labelBgPadding: ep.labelBgPadding,
+      labelBgBorderRadius: ep.labelBgBorderRadius,
     })
   );
   return { nextNodes, nextEdges };
 }
 
 function FlowWorkspace() {
+  const { theme } = useTheme();
+  const edgePalette = useMemo(() => getEdgePalette(theme), [theme]);
+  const exportCanvasBg = theme === 'light' ? '#e2e8f0' : '#0c0e12';
+
   const containerRef = useRef(null);
   const importInputRef = useRef(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -158,6 +171,36 @@ function FlowWorkspace() {
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId);
 
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: 'smoothstep',
+      style: edgePalette.style,
+      markerEnd: edgePalette.markerEnd,
+      labelStyle: edgePalette.labelStyle,
+      labelBgStyle: edgePalette.labelBgStyle,
+      labelBgPadding: edgePalette.labelBgPadding,
+      labelBgBorderRadius: edgePalette.labelBgBorderRadius,
+    }),
+    [edgePalette]
+  );
+
+  useEffect(() => {
+    setEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        style: { ...(e.style || {}), stroke: edgePalette.stroke, strokeWidth: e.style?.strokeWidth ?? 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgePalette.stroke },
+        labelStyle: { ...edgePalette.labelStyle, ...e.labelStyle, fill: edgePalette.labelStyle.fill },
+        labelBgStyle: {
+          ...edgePalette.labelBgStyle,
+          ...e.labelBgStyle,
+          fill: edgePalette.labelBgStyle.fill,
+          fillOpacity: edgePalette.labelBgStyle.fillOpacity,
+        },
+      }))
+    );
+  }, [theme, edgePalette, setEdges]);
+
   const onConnect = useCallback(
     (params) =>
       setEdges((eds) =>
@@ -165,14 +208,17 @@ function FlowWorkspace() {
           {
             ...params,
             type: 'smoothstep',
-            style: { stroke: '#64748b', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-            ...edgeLabelDefaults,
+            style: edgePalette.style,
+            markerEnd: edgePalette.markerEnd,
+            labelStyle: edgePalette.labelStyle,
+            labelBgStyle: edgePalette.labelBgStyle,
+            labelBgPadding: edgePalette.labelBgPadding,
+            labelBgBorderRadius: edgePalette.labelBgBorderRadius,
           },
           eds
         )
       ),
-    [setEdges]
+    [setEdges, edgePalette]
   );
 
   const onSelectionChange = useCallback(({ nodes: sel, edges: selE }) => {
@@ -232,12 +278,19 @@ function FlowWorkspace() {
       setEdges((eds) =>
         eds.map((e) =>
           e.id === selectedEdgeId
-            ? { ...e, label: trimmed || undefined, ...edgeLabelDefaults }
+            ? {
+                ...e,
+                label: trimmed || undefined,
+                labelStyle: edgePalette.labelStyle,
+                labelBgStyle: edgePalette.labelBgStyle,
+                labelBgPadding: edgePalette.labelBgPadding,
+                labelBgBorderRadius: edgePalette.labelBgBorderRadius,
+              }
             : e
         )
       );
     },
-    [selectedEdgeId, setEdges]
+    [selectedEdgeId, setEdges, edgePalette]
   );
 
   const runAutoLayout = useCallback(() => {
@@ -300,7 +353,7 @@ function FlowWorkspace() {
     const pixelRatio = getExportPixelRatio(el);
     const dataUrl = await toPng(el, {
       cacheBust: true,
-      backgroundColor: '#0c0e12',
+      backgroundColor: exportCanvasBg,
       pixelRatio,
       filter: exportFilter,
     });
@@ -313,7 +366,7 @@ function FlowWorkspace() {
     if (!el) return;
     const dataUrl = await toSvg(el, {
       cacheBust: true,
-      backgroundColor: '#0c0e12',
+      backgroundColor: exportCanvasBg,
       filter: exportFilter,
     });
     const res = await fetch(dataUrl);
@@ -327,14 +380,14 @@ function FlowWorkspace() {
 
   const applyDiagramData = useCallback(
     (data) => {
-      const { nextNodes, nextEdges } = diagramDataToFlowState(data);
+      const { nextNodes, nextEdges } = diagramDataToFlowState(data, theme);
       setNodes(nextNodes);
       setEdges(nextEdges);
       syncIdSeqFromNodes(nextNodes);
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
     },
-    [setNodes, setEdges]
+    [setNodes, setEdges, theme]
   );
 
   const onImportFile = async (e) => {
@@ -355,6 +408,7 @@ function FlowWorkspace() {
   const [loadStem, setLoadStem] = useState('');
   const [serverMsg, setServerMsg] = useState('');
   const [serverBusy, setServerBusy] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   const refreshServerFiles = useCallback(async () => {
     try {
@@ -467,21 +521,16 @@ function FlowWorkspace() {
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
+            colorMode={theme === 'dark' ? 'dark' : 'light'}
             connectionMode={ConnectionMode.Loose}
             fitView
             fitViewOptions={{ padding: 0.2 }}
-            defaultEdgeOptions={{
-              type: 'smoothstep',
-              style: { stroke: '#64748b', strokeWidth: 2 },
-              markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-              ...edgeLabelDefaults,
-            }}
+            defaultEdgeOptions={defaultEdgeOptions}
             proOptions={{ hideAttribution: true }}
             deleteKeyCode={['Backspace', 'Delete']}
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
           >
-            <Background color="#334155" gap={20} size={1} />
             <Controls className="diagram-controls" />
             <MiniMap
               className="diagram-minimap"
@@ -526,7 +575,24 @@ function FlowWorkspace() {
             />
           </div>
         </div>
-        <aside className="diagram-inspector">
+        <div
+          className={`diagram-inspector-shell${inspectorOpen ? '' : ' diagram-inspector-shell--collapsed'}`}
+        >
+          <button
+            type="button"
+            id="diagram-inspector-toggle"
+            className="diagram-inspector-toggle"
+            onClick={() => setInspectorOpen((o) => !o)}
+            title={inspectorOpen ? 'Hide side panel (more room for the canvas)' : 'Show Selection & exportedfiles'}
+            aria-expanded={inspectorOpen}
+            aria-controls="diagram-inspector-panel"
+          >
+            <span className="diagram-inspector-toggle__chevron" aria-hidden>
+              {inspectorOpen ? '‹' : '›'}
+            </span>
+            <span className="diagram-inspector-toggle__label">Selection</span>
+          </button>
+          <aside className="diagram-inspector" id="diagram-inspector-panel">
           <h3>Selection</h3>
           {selectedNode ? (
             <>
@@ -629,7 +695,7 @@ function FlowWorkspace() {
           <div className="diagram-inspector__help">
             <h4>Tips</h4>
             <ul>
-              <li>Drag from the bottom dot to the top dot of another node to link parent → child.</li>
+              <li>{'Drag from a node handle to another node\u2019s handle to connect (any side).'}</li>
               <li>
                 <strong>Layout</strong> arranges the graph automatically (Dagre, top → bottom).
               </li>
@@ -649,6 +715,7 @@ function FlowWorkspace() {
             </ul>
           </div>
         </aside>
+        </div>
       </div>
     </DiagramActionsContext.Provider>
   );

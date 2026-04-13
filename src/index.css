@@ -1,3 +1,5 @@
+@import './theme.css';
+
 *,
 *::before,
 *::after {
@@ -13,9 +15,10 @@ body,
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
-  background: #0c0e12;
-  color: #e8eaed;
+  background: var(--jd-bg-body);
+  color: var(--jd-text);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 button,
