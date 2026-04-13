@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { PALETTE_GROUPS, resolveIcon } from '../lib/iconRegistry.js';
+import { useCallback, useMemo, useState } from 'react';
+import { PALETTE_GROUPS, getFilteredPaletteGroups, resolveIcon } from '../lib/iconRegistry.js';
 
 const DND_TYPE = 'application/cloud-diagram-node';
 
@@ -41,6 +41,7 @@ function PaletteTile({ item }) {
 }
 
 export default function IconPalette() {
+  const [search, setSearch] = useState('');
   const [openByTitle, setOpenByTitle] = useState(() => {
     const init = {};
     PALETTE_GROUPS.forEach((g, i) => {
@@ -49,9 +50,18 @@ export default function IconPalette() {
     return init;
   });
 
+  const filteredGroups = useMemo(() => getFilteredPaletteGroups(search), [search]);
+  const matchCount = useMemo(() => {
+    if (!filteredGroups) return 0;
+    return filteredGroups.reduce((n, g) => n + g.items.length, 0);
+  }, [filteredGroups]);
+
   const toggleGroup = useCallback((title) => {
     setOpenByTitle((prev) => ({ ...prev, [title]: !prev[title] }));
   }, []);
+
+  const groupsToRender = filteredGroups ?? PALETTE_GROUPS;
+  const searching = filteredGroups != null;
 
   return (
     <aside className="icon-palette">
@@ -59,11 +69,33 @@ export default function IconPalette() {
         <strong>Library</strong>
         <p>
           Click a <strong>section title</strong> to show or hide its icons. Drag tiles onto the canvas;
-          connect <em>parent</em> (bottom) to <em>child</em> (top).
+          connect nodes from any side handle.
         </p>
       </div>
-      {PALETTE_GROUPS.map((group) => {
-        const open = !!openByTitle[group.title];
+      <div className="icon-palette__search-wrap">
+        <label className="icon-palette__search-label" htmlFor="icon-palette-search">
+          Search icons
+        </label>
+        <input
+          id="icon-palette-search"
+          type="search"
+          className="icon-palette__search"
+          placeholder="e.g. github, terraform, grafana…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {searching && (
+          <p className="icon-palette__search-hint" role="status">
+            {matchCount === 0
+              ? 'No matches — try another word.'
+              : `${matchCount} match${matchCount === 1 ? '' : 'es'} in ${filteredGroups.length} section${filteredGroups.length === 1 ? '' : 's'}`}
+          </p>
+        )}
+      </div>
+      {groupsToRender.map((group) => {
+        const open = searching || !!openByTitle[group.title];
         const slug = groupSlug(group.title);
         const panelId = `palette-panel-${slug}`;
         const headId = `palette-head-${slug}`;
@@ -72,8 +104,10 @@ export default function IconPalette() {
             <button
               type="button"
               id={headId}
-              className="icon-palette__group-heading"
-              onClick={() => toggleGroup(group.title)}
+              className={`icon-palette__group-heading${searching ? ' icon-palette__group-heading--locked' : ''}`}
+              onClick={() => {
+                if (!searching) toggleGroup(group.title);
+              }}
               aria-expanded={open}
               aria-controls={panelId}
             >
