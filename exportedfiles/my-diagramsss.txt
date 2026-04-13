@@ -5,8 +5,8 @@
       "id": "n-1",
       "type": "service",
       "position": {
-        "x": 259.40252187612793,
-        "y": 320.6978621469652
+        "x": 204.3291825115906,
+        "y": 198.31266355910458
       },
       "data": {
         "label": "IAM",
@@ -17,8 +17,8 @@
       "id": "n-2",
       "type": "service",
       "position": {
-        "x": 372.5,
-        "y": 200.40234375
+        "x": 445.9311191527165,
+        "y": 274.70764289262974
       },
       "data": {
         "label": "Organizations",
@@ -29,12 +29,24 @@
       "id": "n-3",
       "type": "service",
       "position": {
-        "x": 814.835074896125,
-        "y": 306.67812252950813
+        "x": 204.65744193664824,
+        "y": 358.2547419343922
       },
       "data": {
         "label": "EKS",
         "iconKey": "amazoneks"
+      }
+    },
+    {
+      "id": "n-4",
+      "type": "service",
+      "position": {
+        "x": 692.4498763082644,
+        "y": 282.20108281193603
+      },
+      "data": {
+        "label": "IAM",
+        "iconKey": "amazoniam"
       }
     }
   ],
@@ -81,6 +93,25 @@
       "id": "xy-edge__n-3-n-2",
       "source": "n-3",
       "target": "n-2",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "xy-edge__n-2-n-4",
+      "source": "n-2",
+      "target": "n-4",
       "type": "smoothstep",
       "style": {
         "stroke": "#64748b",

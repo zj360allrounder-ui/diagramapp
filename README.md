@@ -59,6 +59,7 @@ You can also open or copy those `.txt` files in an editor; they are normal JSON.
 - Most brand icons come from [Simple Icons](https://simpleicons.org/) (CC0).
 - **Kubernetes workload and API resource** icons (Pod, Deployment, Service, Ingress, PVC, and the rest in the “Kubernetes resources” group) come from the [kubernetes/community](https://github.com/kubernetes/community) icon set ([Apache-2.0](https://github.com/kubernetes/community/blob/master/LICENSE)), copied into `public/icons/k8s/`.
 - **Microsoft Azure** uses a small SVG under `public/icons/azure.svg` because that logo is not distributed in the Simple Icons npm package in this environment.
+- **AWS architecture-style tiles** (AI/ML, analytics, integration groups) use PNGs from [awslabs/aws-icons-for-plantuml](https://github.com/awslabs/aws-icons-for-plantuml) ([Apache-2.0](https://github.com/awslabs/aws-icons-for-plantuml/blob/main/LICENSE)) under `public/icons/aws-plantuml/`.
 
 ## Project layout
 
@@ -70,3 +71,4 @@ You can also open or copy those `.txt` files in an editor; they are normal JSON.
 | `src/lib/iconRegistry.js` | Palette groups and icon keys |
 | `src/lib/layoutGraph.js` | Dagre auto-layout helper |
 | `public/icons/` | Extra SVG assets copied into the build |
+| `public/icons/aws-plantuml/` | AWS category PNGs (AI, analytics, integration) |

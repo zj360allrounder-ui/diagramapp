@@ -349,16 +349,39 @@ function FlowWorkspace() {
       alert('Use a valid name: start with a letter or number; only letters, numbers, . _ -');
       return;
     }
+    const payload = (withReplace) => ({
+      name: stem,
+      diagram: serializeDiagram(nodes, edges),
+      ...(withReplace ? { replace: true } : {}),
+    });
     setServerBusy(true);
     try {
-      const r = await fetch('/api/diagrams', {
+      let r = await fetch('/api/diagrams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: stem, diagram: serializeDiagram(nodes, edges) }),
+        body: JSON.stringify(payload(false)),
       });
-      const j = await r.json().catch(() => ({}));
+      let j = await r.json().catch(() => ({}));
+      if (r.status === 409 && j.exists) {
+        const ok = window.confirm(
+          `exportedfiles/${stem}.txt already exists.\n\nReplace it? The current file will be copied to exportedfiles/.backups/ first.\n\nOK — replace with backup\nCancel — do not save`
+        );
+        if (!ok) {
+          setServerMsg(`Save cancelled — ${stem}.txt was not changed.`);
+          return;
+        }
+        r = await fetch('/api/diagrams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload(true)),
+        });
+        j = await r.json().catch(() => ({}));
+      }
       if (!r.ok) throw new Error(j.error || r.statusText);
-      setServerMsg(`Saved exportedfiles/${stem}.txt`);
+      const savedPath = `exportedfiles/${stem}.txt`;
+      setServerMsg(
+        j.backupPath ? `Saved ${savedPath} (previous copy: ${j.backupPath})` : `Saved ${savedPath}`
+      );
       await refreshServerFiles();
       setLoadStem(stem);
     } catch (err) {

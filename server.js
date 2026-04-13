@@ -64,12 +64,42 @@ app.post('/api/diagrams', async (req, res) => {
   if (!diagram || typeof diagram !== 'object') {
     return res.status(400).json({ error: 'Missing diagram object' });
   }
+  const replace = req.body?.replace === true;
   try {
     await ensureExportDir();
     const text = `${JSON.stringify(diagram, null, 2)}\n`;
     const filePath = path.join(exportDir, `${stem}.txt`);
+    let existed = false;
+    try {
+      await fs.access(filePath);
+      existed = true;
+    } catch (e) {
+      if (e?.code !== 'ENOENT') throw e;
+    }
+    if (existed && !replace) {
+      return res.status(409).json({
+        error: 'A file with this name already exists',
+        exists: true,
+        stem,
+      });
+    }
+    let backupPath = null;
+    if (existed && replace) {
+      const backupDir = path.join(exportDir, '.backups');
+      await fs.mkdir(backupDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+      const backupName = `${stem}.${stamp}.txt`;
+      const backupFull = path.join(backupDir, backupName);
+      await fs.copyFile(filePath, backupFull);
+      backupPath = `exportedfiles/.backups/${backupName}`;
+    }
     await fs.writeFile(filePath, text, 'utf8');
-    res.json({ ok: true, stem, path: `exportedfiles/${stem}.txt` });
+    res.json({
+      ok: true,
+      stem,
+      path: `exportedfiles/${stem}.txt`,
+      ...(backupPath ? { backupPath } : {}),
+    });
   } catch (e) {
     res.status(500).json({ error: String(e?.message || e) });
   }
