@@ -1143,6 +1143,27 @@ export const PALETTE_GROUPS = [
         nodeType: 'text',
         search: 'annotation caption label multiline type free floating',
       },
+      {
+        iconKey: 'diagram_text',
+        defaultLabel: 'Risk',
+        nodeType: 'text',
+        noteTag: 'risk',
+        search: 'risk warning alert',
+      },
+      {
+        iconKey: 'diagram_text',
+        defaultLabel: 'Question',
+        nodeType: 'text',
+        noteTag: 'question',
+        search: 'question open issue',
+      },
+      {
+        iconKey: 'diagram_text',
+        defaultLabel: 'WIP',
+        nodeType: 'text',
+        noteTag: 'wip',
+        search: 'work in progress draft',
+      },
       { iconKey: 'service', defaultLabel: 'Service' },
       { iconKey: 'api', defaultLabel: 'REST / API' },
       { iconKey: 'queue', defaultLabel: 'Queue / worker' },
@@ -1150,10 +1171,13 @@ export const PALETTE_GROUPS = [
   },
 ];
 
-/** @param {{ iconKey: string, defaultLabel: string, search?: string }} item */
+/** @param {{ iconKey: string, defaultLabel: string, search?: string, noteTag?: string }} item */
 export function paletteItemSearchText(item) {
   const spec = resolveIcon(item.iconKey);
-  return [item.defaultLabel, item.iconKey, item.search, spec.title].filter(Boolean).join(' ').toLowerCase();
+  return [item.defaultLabel, item.iconKey, item.search, item.noteTag, spec.title]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 }
 
 /** @returns {typeof PALETTE_GROUPS | null} null when query is empty (use full palette + local expand state) */

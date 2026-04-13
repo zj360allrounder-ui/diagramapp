@@ -15,9 +15,16 @@ import '@xyflow/react/dist/style.css';
 import { toPng, toSvg } from 'html-to-image';
 import ServiceNode from './ServiceNode.jsx';
 import TextNode from './TextNode.jsx';
+import GroupNode from './GroupNode.jsx';
 import IconPalette, { DND_TYPE } from './IconPalette.jsx';
 import { DEFAULT_ICON_KEY } from '../lib/iconRegistry.js';
 import { layoutWithDagre } from '../lib/layoutGraph.js';
+import { orderNodesParentsFirst } from '../lib/orderNodesByParent.js';
+import { computeAlignedPositions, computeDistributedPositions } from '../lib/diagramAlignment.js';
+import { duplicateSelection } from '../lib/diagramDuplicate.js';
+import { DIAGRAM_TEMPLATES } from '../lib/diagramTemplates.js';
+import { pickGroupForDrop, getAbsolutePosition } from '../lib/diagramGeometry.js';
+import { TEXT_NOTE_TAGS } from '../lib/textNoteTags.js';
 import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import './diagram.css';
@@ -43,7 +50,9 @@ function getEdgePalette(theme) {
   };
 }
 
-const nodeTypes = { service: ServiceNode, text: TextNode };
+const nodeTypes = { service: ServiceNode, text: TextNode, group: GroupNode };
+
+const SNAP = 20;
 
 /** Synthetic edge ids: removing them clears `data.parentNodeId` on the child node. */
 const PARENT_EDGE_PREFIX = 'parent-link-';
@@ -67,6 +76,7 @@ function nodeMenuLabel(n) {
     const t = (n.data?.text ?? '').trim().split(/\n/)[0] || 'Text note';
     return t.length > 40 ? `${t.slice(0, 37)}…` : t;
   }
+  if (n.type === 'group') return n.data?.label ?? 'Swimlane';
   return n.data?.label ?? 'Service';
 }
 
@@ -77,6 +87,8 @@ function buildParentEdges(nodes, edgePalette, manualEdges) {
   for (const n of nodes) {
     const pid = n.data?.parentNodeId;
     if (!pid || pid === n.id || !nodeIds.has(pid)) continue;
+    const pNode = nodes.find((x) => x.id === pid);
+    if (pNode?.type === 'group' || n.type === 'group') continue;
     if (manualKey.has(`${pid}\t${n.id}`)) continue;
     out.push({
       id: `${PARENT_EDGE_PREFIX}${n.id}`,
@@ -113,9 +125,28 @@ function syncIdSeqFromNodes(nodes) {
 
 function serializeDiagram(nodes, edges) {
   return {
-    version: 1,
-    nodes: nodes.map(({ id, type, position, data }) => {
+    version: 2,
+    nodes: nodes.map((node) => {
+      const { id, type, position, data, parentId, extent, style, width, height } = node;
       const t = type || 'service';
+      const baseExtra = {
+        ...(parentId ? { parentId } : {}),
+        ...(extent === 'parent' ? { extent: 'parent' } : {}),
+      };
+      if (t === 'group') {
+        return {
+          id,
+          type: 'group',
+          position,
+          data: { label: data?.label ?? 'Region' },
+          style: {
+            width: style?.width ?? width ?? 480,
+            height: style?.height ?? height ?? 320,
+          },
+          dragHandle: '.group-node__header',
+          ...baseExtra,
+        };
+      }
       if (t === 'text') {
         return {
           id,
@@ -123,8 +154,10 @@ function serializeDiagram(nodes, edges) {
           position,
           data: {
             text: data?.text ?? '',
+            ...(data?.noteTag && data.noteTag !== 'default' ? { noteTag: data.noteTag } : {}),
             ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
           },
+          ...baseExtra,
         };
       }
       return {
@@ -136,6 +169,7 @@ function serializeDiagram(nodes, edges) {
           iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
           ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
         },
+        ...baseExtra,
       };
     }),
     edges: edges.map(
@@ -202,6 +236,28 @@ function diagramDataToFlowState(data, theme) {
   const ep = getEdgePalette(theme);
   const nextNodes = data.nodes.map((n) => {
     const t = n.type || 'service';
+    const parentExtra = n.parentId
+      ? {
+          parentId: String(n.parentId),
+          ...(n.extent === 'parent' ? { extent: 'parent' } : {}),
+        }
+      : {};
+    if (t === 'group') {
+      const sw = n.style?.width ?? n.width ?? 480;
+      const sh = n.style?.height ?? n.height ?? 320;
+      const width = typeof sw === 'number' ? sw : Number.parseInt(String(sw), 10) || 480;
+      const height = typeof sh === 'number' ? sh : Number.parseInt(String(sh), 10) || 320;
+      return {
+        id: String(n.id),
+        type: 'group',
+        position: n.position || { x: 0, y: 0 },
+        data: { label: n.data?.label ?? 'Region' },
+        style: { width, height },
+        zIndex: 0,
+        dragHandle: '.group-node__header',
+        ...parentExtra,
+      };
+    }
     if (t === 'text') {
       return {
         id: String(n.id),
@@ -209,8 +265,10 @@ function diagramDataToFlowState(data, theme) {
         position: n.position || { x: 0, y: 0 },
         data: {
           text: n.data?.text ?? n.data?.label ?? 'Double-click to edit',
+          ...(n.data?.noteTag ? { noteTag: n.data.noteTag } : {}),
           ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
         },
+        ...parentExtra,
       };
     }
     return {
@@ -222,6 +280,7 @@ function diagramDataToFlowState(data, theme) {
         iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
         ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
       },
+      ...parentExtra,
     };
   });
   const nextEdges = data.edges.map((ed, i) =>
@@ -250,8 +309,11 @@ function FlowWorkspace() {
   const { screenToFlowPosition, fitView, getIntersectingNodes, getNodes } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState([]);
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [snapGridEnabled, setSnapGridEnabled] = useState(false);
 
   const edgesWithParents = useMemo(
     () => [...edges, ...buildParentEdges(nodes, edgePalette, edges)],
@@ -375,34 +437,51 @@ function FlowWorkspace() {
       const currentNodes = getNodes();
       const hitRect = { x: position.x - 8, y: position.y - 8, width: 16, height: 16 };
       const under = getIntersectingNodes(hitRect, true, currentNodes);
-      const dropParentId =
-        under.length > 0 ? under[under.length - 1]?.id : undefined;
+      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+      const swimlane = pickGroupForDrop(under, nodeMap, position);
+      const hierarchyParent = [...under]
+        .reverse()
+        .find((n) => (n.type === 'service' || n.type === 'text') && n.id !== swimlane?.id);
       const id = nextId();
-      const parentNodeId = dropParentId || undefined;
 
+      let newNode;
       if (item.nodeType === 'text') {
-        setNodes((nds) =>
-          nds.concat({
-            id,
-            type: 'text',
-            position,
-            data: { text: 'Type your note…', ...(parentNodeId ? { parentNodeId } : {}) },
-          })
-        );
-        return;
-      }
-      setNodes((nds) =>
-        nds.concat({
+        newNode = {
+          id,
+          type: 'text',
+          position: swimlane
+            ? {
+                x: position.x - getAbsolutePosition(swimlane.id, nodeMap).x,
+                y: position.y - getAbsolutePosition(swimlane.id, nodeMap).y,
+              }
+            : position,
+          data: {
+            text: 'Type your note…',
+            ...(item.noteTag ? { noteTag: item.noteTag } : {}),
+            ...(!swimlane && hierarchyParent ? { parentNodeId: hierarchyParent.id } : {}),
+          },
+          ...(swimlane ? { parentId: swimlane.id, extent: 'parent' } : {}),
+        };
+      } else {
+        newNode = {
           id,
           type: 'service',
-          position,
+          position: swimlane
+            ? {
+                x: position.x - getAbsolutePosition(swimlane.id, nodeMap).x,
+                y: position.y - getAbsolutePosition(swimlane.id, nodeMap).y,
+              }
+            : position,
           data: {
             label: item.label || 'Service',
             iconKey: item.iconKey || DEFAULT_ICON_KEY,
-            ...(parentNodeId ? { parentNodeId } : {}),
+            ...(!swimlane && hierarchyParent ? { parentNodeId: hierarchyParent.id } : {}),
           },
-        })
-      );
+          ...(swimlane ? { parentId: swimlane.id, extent: 'parent' } : {}),
+        };
+      }
+
+      setNodes((nds) => orderNodesParentsFirst(nds.concat(newNode)));
     },
     [screenToFlowPosition, setNodes, getNodes, getIntersectingNodes]
   );
@@ -423,9 +502,47 @@ function FlowWorkspace() {
     [selectedNodeId, setNodes]
   );
 
+  const updateSelectedNoteTag = useCallback(
+    (tag) => {
+      if (!selectedNodeId) return;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === selectedNodeId && n.type === 'text'
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  ...(tag && tag !== 'default' ? { noteTag: tag } : { noteTag: undefined }),
+                },
+              }
+            : n
+        )
+      );
+    },
+    [selectedNodeId, setNodes]
+  );
+
+  const updateGroupDimensions = useCallback(
+    (dim, raw) => {
+      if (!selectedNodeId) return;
+      const num = Number.parseInt(String(raw), 10);
+      if (!Number.isFinite(num) || num < 160) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== selectedNodeId || n.type !== 'group') return n;
+          const style = { ...(n.style || {}), [dim]: num };
+          return { ...n, style };
+        })
+      );
+    },
+    [selectedNodeId, setNodes]
+  );
+
   const setSelectedParent = useCallback(
     (parentId) => {
       if (!selectedNodeId) return;
+      const sel = nodes.find((x) => x.id === selectedNodeId);
+      if (sel?.type === 'group') return;
       const next = parentId || undefined;
       if (next && wouldCreateParentCycle(nodes, selectedNodeId, next)) return;
       setNodes((nds) =>
@@ -489,7 +606,166 @@ function FlowWorkspace() {
     [setNodes]
   );
 
-  const diagramActions = useMemo(() => ({ renameNodeById }), [renameNodeById]);
+  const applyTemplate = useCallback(
+    (templateId) => {
+      const t = DIAGRAM_TEMPLATES.find((x) => x.id === templateId);
+      if (!t) return;
+      const built = t.build(nextId);
+      const rect = containerRef.current?.getBoundingClientRect();
+      const origin = rect
+        ? screenToFlowPosition({ x: rect.left + 100, y: rect.top + 100 })
+        : { x: 80, y: 80 };
+      const minx = Math.min(...built.nodes.map((n) => n.position.x));
+      const miny = Math.min(...built.nodes.map((n) => n.position.y));
+      const shifted = built.nodes.map((n) => ({
+        ...n,
+        position: { x: n.position.x - minx + origin.x, y: n.position.y - miny + origin.y },
+      }));
+      const newEdges = built.edges.map((e) => ({
+        ...e,
+        type: 'smoothstep',
+        animated: false,
+        style: edgePalette.style,
+        markerEnd: edgePalette.markerEnd,
+        labelStyle: edgePalette.labelStyle,
+        labelBgStyle: edgePalette.labelBgStyle,
+        labelBgPadding: edgePalette.labelBgPadding,
+        labelBgBorderRadius: edgePalette.labelBgBorderRadius,
+      }));
+      setNodes((nds) => {
+        const merged = orderNodesParentsFirst([...nds, ...shifted]);
+        syncIdSeqFromNodes(merged);
+        return merged;
+      });
+      setEdges((eds) => [...eds, ...newEdges]);
+      window.setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 80);
+    },
+    [screenToFlowPosition, setNodes, setEdges, edgePalette, fitView]
+  );
+
+  const insertSwimlane = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const center = screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+    const w = 520;
+    const h = 360;
+    const swim = {
+      id: nextId(),
+      type: 'group',
+      position: { x: center.x - w / 2, y: center.y - h / 2 },
+      data: { label: 'Swimlane' },
+      style: { width: w, height: h },
+      zIndex: 0,
+      dragHandle: '.group-node__header',
+    };
+    setNodes((nds) => {
+      const merged = orderNodesParentsFirst([...nds, swim]);
+      syncIdSeqFromNodes(merged);
+      return merged;
+    });
+  }, [screenToFlowPosition, setNodes]);
+
+  const applyAlign = useCallback(
+    (mode) => {
+      const sel = getNodes().filter((n) => n.selected);
+      const map = computeAlignedPositions(sel, mode);
+      if (map.size === 0) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          const p = map.get(n.id);
+          return p ? { ...n, position: { x: p.x, y: p.y } } : n;
+        })
+      );
+    },
+    [getNodes, setNodes]
+  );
+
+  const applyDistribute = useCallback(
+    (axis) => {
+      const sel = getNodes().filter((n) => n.selected);
+      const map = computeDistributedPositions(sel, axis);
+      if (map.size === 0) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          const p = map.get(n.id);
+          return p ? { ...n, position: { x: p.x, y: p.y } } : n;
+        })
+      );
+    },
+    [getNodes, setNodes]
+  );
+
+  const duplicateSelected = useCallback(() => {
+    const nds = getNodes();
+    const dup = duplicateSelection(nds, edgesRef.current, nextId);
+    if (!dup) return;
+    const cleared = nds.map((n) => ({ ...n, selected: false }));
+    const merged = orderNodesParentsFirst([...cleared, ...dup.clones]);
+    syncIdSeqFromNodes(merged);
+    setNodes(merged);
+    setEdges((eds) => [...eds, ...dup.newEdges]);
+  }, [getNodes, setNodes, setEdges]);
+
+  const onNodeDragStop = useCallback(
+    (_e, node) => {
+      if (!snapGridEnabled) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== node.id) return n;
+          return {
+            ...n,
+            position: {
+              x: Math.round(n.position.x / SNAP) * SNAP,
+              y: Math.round(n.position.y / SNAP) * SNAP,
+            },
+          };
+        })
+      );
+    },
+    [snapGridEnabled, setNodes]
+  );
+
+  useEffect(() => {
+    const onKey = (e) => {
+      const t = e.target;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement ||
+        (t instanceof HTMLElement && t.isContentEditable)
+      ) {
+        return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      const sel = getNodes().filter((n) => n.selected);
+      if (sel.length === 0) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 8 : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.selected ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+        )
+      );
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [getNodes, setNodes, duplicateSelected]);
+
+  const diagramActions = useMemo(
+    () => ({ renameNodeById, applyTemplate, insertSwimlane }),
+    [renameNodeById, applyTemplate, insertSwimlane]
+  );
 
   const downloadBlob = (blob, filename) => {
     const a = document.createElement('a');
@@ -501,6 +777,8 @@ function FlowWorkspace() {
 
   const exportFilter = (node) => {
     if (!(node instanceof HTMLElement)) return true;
+    /* Hide per-side connection handles (the 4 dots) on service/text nodes in PNG/SVG. */
+    if (node.closest('.react-flow__handle')) return false;
     const cls = node.classList;
     if (cls.contains('react-flow__controls')) return false;
     if (cls.contains('react-flow__minimap')) return false;
@@ -553,9 +831,10 @@ function FlowWorkspace() {
   const applyDiagramData = useCallback(
     (data) => {
       const { nextNodes, nextEdges } = diagramDataToFlowState(data, theme);
-      setNodes(nextNodes);
+      const ordered = orderNodesParentsFirst(nextNodes);
+      setNodes(ordered);
       setEdges(nextEdges);
-      syncIdSeqFromNodes(nextNodes);
+      syncIdSeqFromNodes(ordered);
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
     },
@@ -691,10 +970,13 @@ function FlowWorkspace() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onNodeDragStop={onNodeDragStop}
             onSelectionChange={onSelectionChange}
             nodeTypes={nodeTypes}
             colorMode={theme === 'dark' ? 'dark' : 'light'}
             connectionMode={ConnectionMode.Loose}
+            snapToGrid={snapGridEnabled}
+            snapGrid={[SNAP, SNAP]}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             defaultEdgeOptions={defaultEdgeOptions}
@@ -712,6 +994,56 @@ function FlowWorkspace() {
             />
           </ReactFlow>
           <div className="diagram-floating-toolbar">
+            <label className="diagram-toolbar__snap">
+              <input
+                type="checkbox"
+                checked={snapGridEnabled}
+                onChange={(e) => setSnapGridEnabled(e.target.checked)}
+              />
+              Snap 20
+            </label>
+            <span className="diagram-toolbar__sep" aria-hidden />
+            <button type="button" onClick={() => applyAlign('left')} title="Align left (2+ nodes, same parent)">
+              ◀
+            </button>
+            <button type="button" onClick={() => applyAlign('centerH')} title="Align center H">
+              ↔
+            </button>
+            <button type="button" onClick={() => applyAlign('right')} title="Align right">
+              ▶
+            </button>
+            <button type="button" onClick={() => applyAlign('top')} title="Align top">
+              ▲
+            </button>
+            <button type="button" onClick={() => applyAlign('centerV')} title="Align center V">
+              ↕
+            </button>
+            <button type="button" onClick={() => applyAlign('bottom')} title="Align bottom">
+              ▼
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDistribute('horizontal')}
+              title="Distribute horizontally (3+ nodes)"
+            >
+              ═
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDistribute('vertical')}
+              title="Distribute vertically (3+ nodes)"
+            >
+              ‖
+            </button>
+            <span className="diagram-toolbar__sep" aria-hidden />
+            <button
+              type="button"
+              onClick={duplicateSelected}
+              title="Duplicate selection (⌘D / Ctrl+D)"
+            >
+              Dup
+            </button>
+            <span className="diagram-toolbar__sep" aria-hidden />
             <button type="button" onClick={runAutoLayout} title="Hierarchical layout (top → bottom)">
               Layout
             </button>
@@ -768,7 +1100,50 @@ function FlowWorkspace() {
           <h3>Selection</h3>
           {selectedNode ? (
             <>
-              {selectedNode.type === 'text' ? (
+              {selectedNode.type === 'group' ? (
+                <>
+                  <label className="diagram-inspector__field">
+                    <span>Swimlane title</span>
+                    <input
+                      type="text"
+                      value={selectedNode.data.label ?? ''}
+                      onChange={(e) => updateSelectedLabel(e.target.value)}
+                    />
+                  </label>
+                  <label className="diagram-inspector__field">
+                    <span>Width (px)</span>
+                    <input
+                      type="number"
+                      min={160}
+                      className="nodrag"
+                      value={
+                        typeof selectedNode.style?.width === 'number'
+                          ? selectedNode.style.width
+                          : Number.parseInt(String(selectedNode.style?.width ?? 480), 10) || 480
+                      }
+                      onChange={(e) => updateGroupDimensions('width', e.target.value)}
+                    />
+                  </label>
+                  <label className="diagram-inspector__field">
+                    <span>Height (px)</span>
+                    <input
+                      type="number"
+                      min={160}
+                      className="nodrag"
+                      value={
+                        typeof selectedNode.style?.height === 'number'
+                          ? selectedNode.style.height
+                          : Number.parseInt(String(selectedNode.style?.height ?? 320), 10) || 320
+                      }
+                      onChange={(e) => updateGroupDimensions('height', e.target.value)}
+                    />
+                  </label>
+                  <p className="diagram-inspector__hint">
+                    Drag services or notes <strong>into</strong> this frame to keep them grouped. Layout skips
+                    swimlane contents.
+                  </p>
+                </>
+              ) : selectedNode.type === 'text' ? (
                 <>
                   <label className="diagram-inspector__field">
                     <span>Text</span>
@@ -780,8 +1155,22 @@ function FlowWorkspace() {
                       placeholder="Multi-line note on the diagram…"
                     />
                   </label>
+                  <label className="diagram-inspector__field">
+                    <span>Note tag</span>
+                    <select
+                      className="nodrag"
+                      value={selectedNode.data.noteTag ?? 'default'}
+                      onChange={(e) => updateSelectedNoteTag(e.target.value)}
+                    >
+                      {TEXT_NOTE_TAGS.map((tag) => (
+                        <option key={tag.id} value={tag.id}>
+                          {tag.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <p className="diagram-inspector__hint">
-                    Double-click the box on the canvas to edit inline. Supports line breaks.
+                    Double-click the box on the canvas to edit inline. Tags add a colored callout style.
                   </p>
                 </>
               ) : (
@@ -800,28 +1189,33 @@ function FlowWorkspace() {
                   </p>
                 </>
               )}
-              <label className="diagram-inspector__field">
-                <span>Parent</span>
-                <select
-                  className="nodrag"
-                  value={selectedNode.data.parentNodeId ?? ''}
-                  onChange={(e) => setSelectedParent(e.target.value)}
-                >
-                  <option value="">None</option>
-                  {nodes
-                    .filter((n) => n.id !== selectedNode.id)
-                    .filter((n) => !wouldCreateParentCycle(nodes, selectedNode.id, n.id))
-                    .map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {nodeMenuLabel(n)}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <p className="diagram-inspector__hint">
-                Draws an arrow from parent (bottom) to this node (top). You can still add manual connectors
-                for APIs and data flow. Drop a new icon onto an existing node to attach it as a child.
-              </p>
+              {selectedNode.type !== 'group' ? (
+                <>
+                  <label className="diagram-inspector__field">
+                    <span>Parent (hierarchy)</span>
+                    <select
+                      className="nodrag"
+                      value={selectedNode.data.parentNodeId ?? ''}
+                      onChange={(e) => setSelectedParent(e.target.value)}
+                    >
+                      <option value="">None</option>
+                      {nodes
+                        .filter((n) => n.id !== selectedNode.id)
+                        .filter((n) => n.type !== 'group')
+                        .filter((n) => !wouldCreateParentCycle(nodes, selectedNode.id, n.id))
+                        .map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {nodeMenuLabel(n)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <p className="diagram-inspector__hint">
+                    Draws an arrow from parent (bottom) to this node (top). Drop icons onto a swimlane to place
+                    them inside the frame.
+                  </p>
+                </>
+              ) : null}
             </>
           ) : selectedEdge ? (
             String(selectedEdge.id).startsWith(PARENT_EDGE_PREFIX) ? (
@@ -933,6 +1327,15 @@ function FlowWorkspace() {
               </li>
               <li>Click an edge to add a dependency / API name label.</li>
               <li>Shift-click to multi-select; Backspace deletes selection.</li>
+              <li>
+                <strong>Snap 20</strong> snaps nodes to a grid after drag. Align / distribute tools need 2+ or 3+
+                selected nodes in the <strong>same parent</strong> (canvas or same swimlane). Arrow keys nudge
+                (Shift = 8px). <strong>⌘D / Ctrl+D</strong> duplicates selection.
+              </li>
+              <li>
+                <strong>Templates</strong> and <strong>+ Swimlane</strong> live in the library panel; JSON export
+                is version 2 for swimlanes and note tags.
+              </li>
               <li>JSON export includes layout and icons for round-trip editing.</li>
               <li>
                 For server save/load, run <code>npm run dev:all</code> (Vite + API) or{' '}

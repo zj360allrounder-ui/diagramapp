@@ -1,6 +1,12 @@
 import { createContext, useContext } from 'react';
 
-/** @type {React.Context<{ renameNodeById: (id: string, label: string) => void } | null>} */
+/**
+ * @typedef {Object} DiagramActions
+ * @property {(id: string, label: string) => void} renameNodeById
+ * @property {(templateId: string) => void} [applyTemplate]
+ * @property {() => void} [insertSwimlane]
+ */
+/** @type {React.Context<DiagramActions | null>} */
 export const DiagramActionsContext = createContext(null);
 
 export function useDiagramActions() {

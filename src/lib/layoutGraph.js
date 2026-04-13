@@ -4,6 +4,33 @@ const DEFAULT_W = 168;
 const DEFAULT_H = 92;
 const TEXT_W = 240;
 const TEXT_H = 96;
+const GROUP_W = 480;
+const GROUP_H = 320;
+
+/**
+ * Top-level services/text only — groups and nodes inside swimlanes keep their positions.
+ * @param {import('@xyflow/react').Node} node
+ */
+function isLayoutable(node) {
+  if (node.type === 'group') return false;
+  if (node.parentId) return false;
+  return true;
+}
+
+function nodeSize(node) {
+  if (node.type === 'group') {
+    const w = node.style?.width ?? node.width ?? GROUP_W;
+    const h = node.style?.height ?? node.height ?? GROUP_H;
+    return {
+      w: typeof w === 'number' ? w : Number.parseInt(String(w), 10) || GROUP_W,
+      h: typeof h === 'number' ? h : Number.parseInt(String(h), 10) || GROUP_H,
+    };
+  }
+  if (node.type === 'text') {
+    return { w: node.measured?.width ?? TEXT_W, h: node.measured?.height ?? TEXT_H };
+  }
+  return { w: node.measured?.width ?? DEFAULT_W, h: node.measured?.height ?? DEFAULT_H };
+}
 
 /**
  * @param {import('@xyflow/react').Node[]} nodes
@@ -24,9 +51,8 @@ export function layoutWithDagre(nodes, edges, direction = 'TB') {
   });
 
   for (const node of nodes) {
-    const isText = node.type === 'text';
-    const w = node.measured?.width ?? (isText ? TEXT_W : DEFAULT_W);
-    const h = node.measured?.height ?? (isText ? TEXT_H : DEFAULT_H);
+    if (!isLayoutable(node)) continue;
+    const { w, h } = nodeSize(node);
     g.setNode(node.id, { width: w, height: h });
   }
 
@@ -39,11 +65,10 @@ export function layoutWithDagre(nodes, edges, direction = 'TB') {
   dagre.layout(g);
 
   return nodes.map((node) => {
+    if (!isLayoutable(node)) return node;
     const n = g.node(node.id);
     if (n === undefined) return node;
-    const isText = node.type === 'text';
-    const w = node.measured?.width ?? (isText ? TEXT_W : DEFAULT_W);
-    const h = node.measured?.height ?? (isText ? TEXT_H : DEFAULT_H);
+    const { w, h } = nodeSize(node);
     return {
       ...node,
       position: { x: n.x - w / 2, y: n.y - h / 2 },

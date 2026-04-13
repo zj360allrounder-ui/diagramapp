@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { PALETTE_GROUPS, getFilteredPaletteGroups, resolveIcon } from '../lib/iconRegistry.js';
+import { DIAGRAM_TEMPLATES } from '../lib/diagramTemplates.js';
+import { useDiagramActions } from '../context/DiagramActionsContext.jsx';
 
 const DND_TYPE = 'application/cloud-diagram-node';
 
@@ -26,6 +28,7 @@ function PaletteTile({ item }) {
           iconKey: item.iconKey,
           label: item.defaultLabel,
           ...(item.nodeType ? { nodeType: item.nodeType } : {}),
+          ...(item.noteTag ? { noteTag: item.noteTag } : {}),
         })
       }
       title={`Drag to canvas: ${item.defaultLabel}`}
@@ -45,6 +48,7 @@ function PaletteTile({ item }) {
 }
 
 export default function IconPalette() {
+  const actions = useDiagramActions();
   const [search, setSearch] = useState('');
   const [openByTitle, setOpenByTitle] = useState(() => {
     const init = {};
@@ -98,6 +102,33 @@ export default function IconPalette() {
           </p>
         )}
       </div>
+      {!searching ? (
+        <div className="icon-palette__starters">
+          <div className="icon-palette__starters-title">Templates & frames</div>
+          <div className="icon-palette__starter-btns">
+            {DIAGRAM_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="icon-palette__starter-btn"
+                onClick={() => actions?.applyTemplate?.(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="icon-palette__starter-btn icon-palette__starter-btn--lane"
+              onClick={() => actions?.insertSwimlane?.()}
+            >
+              + Swimlane
+            </button>
+          </div>
+          <p className="icon-palette__starters-hint">
+            Templates add starter nodes and edges. Swimlane is a titled frame — drop icons inside it.
+          </p>
+        </div>
+      ) : null}
       {groupsToRender.map((group) => {
         const open = searching || !!openByTitle[group.title];
         const slug = groupSlug(group.title);
@@ -123,7 +154,10 @@ export default function IconPalette() {
             {open ? (
               <div className="icon-palette__grid" id={panelId} role="region" aria-labelledby={headId}>
                 {group.items.map((item) => (
-                  <PaletteTile key={`${group.title}-${item.defaultLabel}`} item={item} />
+                  <PaletteTile
+                    key={`${group.title}-${item.iconKey}-${item.defaultLabel}-${item.noteTag ?? ''}`}
+                    item={item}
+                  />
                 ))}
               </div>
             ) : null}

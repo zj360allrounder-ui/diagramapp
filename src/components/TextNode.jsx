@@ -28,8 +28,16 @@ function TextNode({ id, data, selected }) {
   }, [data.text]);
 
   const h = 'service-node__handle';
+  const tag = data.noteTag && data.noteTag !== 'default' ? data.noteTag : null;
   return (
-    <div className={`text-node ${selected ? 'text-node--selected' : ''}`}>
+    <div
+      className={`text-node text-node--tag-${tag ?? 'default'} ${selected ? 'text-node--selected' : ''}`}
+    >
+      {tag ? (
+        <span className="text-node__badge">
+          {tag === 'wip' ? 'WIP' : tag === 'risk' ? 'Risk' : tag === 'question' ? 'Q' : tag}
+        </span>
+      ) : null}
       <Handle className={`${h} ${h}--at-top`} type="source" position={Position.Top} id="pt-top" isConnectable />
       <Handle className={`${h} ${h}--at-right`} type="source" position={Position.Right} id="pt-right" isConnectable />
       <Handle className={`${h} ${h}--at-bottom`} type="source" position={Position.Bottom} id="pt-bottom" isConnectable />
