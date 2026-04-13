@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": 366,
+        "y": 162.1015625
+      },
+      "data": {
+        "label": "Pod",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": 447,
+        "y": 94.90234375
+      },
+      "data": {
+        "label": "Deployment",
+        "iconKey": "k8s_deploy"
+      }
+    }
+  ],
+  "edges": []
+}

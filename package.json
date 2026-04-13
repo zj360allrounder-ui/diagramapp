@@ -1,0 +1,27 @@
+{
+  "name": "cloud-diagram-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:all": "concurrently -k -n api,vite -c blue,green \"node server.js\" \"vite\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.8",
+    "@xyflow/react": "^12.4.4",
+    "express": "^4.21.2",
+    "html-to-image": "^1.11.13",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "simple-icons": "^14.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "vite": "^6.0.11"
+  }
+}
