@@ -29,7 +29,7 @@ export default function App() {
         <div className="brand">
           <span className="brand-mark" aria-hidden />
           <div>
-            <h1>jarus Diagram</h1>
+            <h1>Zarus Diag Studio</h1>
             <p>Architecture &amp; dependency maps with cloud and Kubernetes icons</p>
           </div>
         </div>

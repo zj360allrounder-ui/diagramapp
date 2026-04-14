@@ -58,7 +58,8 @@ const nodeTypes = { service: ServiceNode, text: TextNode, group: GroupNode };
 const SNAP = 20;
 
 /** Browser localStorage key for crash recovery (not a substitute for server save). */
-const DRAFT_STORAGE_KEY = 'jarus-diagram-local-draft-v1';
+const DRAFT_STORAGE_KEY = 'zarus-diag-studio-local-draft-v1';
+const LEGACY_DRAFT_STORAGE_KEY = 'jarus-diagram-local-draft-v1';
 const AUTOSAVE_DEBOUNCE_MS = 1200;
 /** Written into each local draft; pre-fills Save as / Load after a refresh. */
 const AUTOSAVE_DIAGRAM_NAME = 'autosave';
@@ -430,7 +431,12 @@ function FlowWorkspace() {
     if (recoveryCheckedRef.current) return;
     recoveryCheckedRef.current = true;
     try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      let raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      let fromLegacyDraft = false;
+      if (!raw) {
+        raw = localStorage.getItem(LEGACY_DRAFT_STORAGE_KEY);
+        fromLegacyDraft = true;
+      }
       if (!raw) return;
       const parsed = JSON.parse(raw);
       const diagram = parsed?.diagram;
@@ -447,6 +453,13 @@ function FlowWorkspace() {
         savedAt: Number(parsed.savedAt) || Date.now(),
         name,
       });
+      if (fromLegacyDraft) {
+        try {
+          localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -458,6 +471,7 @@ function FlowWorkspace() {
     setAutosaveRestoreNotice(null);
     try {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
     } catch {
       /* ignore */
     }
@@ -486,6 +500,7 @@ function FlowWorkspace() {
     commitCheckpoint([], []);
     try {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_DRAFT_STORAGE_KEY);
     } catch {
       /* ignore */
     }

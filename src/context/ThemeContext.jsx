@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const STORAGE_KEY = 'jarus-diagram-theme';
+const STORAGE_KEY = 'zarus-diag-studio-theme';
 
 const ThemeContext = createContext({
   theme: 'dark',

@@ -128,7 +128,7 @@ const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => {
   console.log(`Server http://localhost:${port}`);
   if (existsSync(indexHtml)) {
-    console.log('Serving jarus Diagram (dist/)');
+    console.log('Serving Zarus Diag Studio (dist/)');
   } else {
     console.log('No dist/ yet — run Vite on :5173 for the UI, or npm run build && npm start');
   }

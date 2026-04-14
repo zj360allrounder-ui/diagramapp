@@ -17,7 +17,7 @@ docker compose up --build -d "$@"
 
 PORT="${PORT:-3000}"
 echo ""
-echo "jarus Diagram is running at http://localhost:${PORT}"
+echo "Zarus Diag Studio is running at http://localhost:${PORT}"
 echo "Saved diagrams are written to: $EXPORT_DIR"
 echo ""
 echo "Commands:"

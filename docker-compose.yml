@@ -1,10 +1,10 @@
-# jarus Diagram — production UI + API on port 3000
+# Zarus Diag Studio — production UI + API on port 3000
 # Diagram JSON files persist under ./exportedfiles on the host (bind mount).
 
 services:
-  jarus-diagram:
+  zarus-diag-studio:
     build: .
-    image: jarus-diagram:latest
+    image: zarus-diag-studio:latest
     ports:
       - "${PORT:-3000}:3000"
     volumes:
