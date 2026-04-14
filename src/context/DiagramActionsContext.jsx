@@ -3,6 +3,9 @@ import { createContext, useContext } from 'react';
 /**
  * @typedef {Object} DiagramActions
  * @property {(id: string, label: string) => void} renameNodeById
+ * @property {(childId: string, parentId: string) => void} [setParentForNode]
+ * @property {string | null} [serviceParentUiNodeId]
+ * @property {(nodeId: string) => void} [toggleServiceParentUi]
  * @property {(templateId: string) => void} [applyTemplate]
  * @property {() => void} [insertSwimlane]
  */

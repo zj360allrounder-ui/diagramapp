@@ -26,6 +26,8 @@ import { DIAGRAM_TEMPLATES } from '../lib/diagramTemplates.js';
 import { pickGroupForDrop, getAbsolutePosition } from '../lib/diagramGeometry.js';
 import { TEXT_NOTE_TAGS } from '../lib/textNoteTags.js';
 import { filterNodesByQuery, metaFieldsForExport, metaFieldsFromImport } from '../lib/nodeSearch.js';
+import { nodeMenuLabel, wouldCreateParentCycle } from '../lib/diagramParentUtils.js';
+import ParentHierarchyPicker from './ParentHierarchyPicker.jsx';
 import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import './diagram.css';
@@ -63,29 +65,6 @@ const AUTOSAVE_DIAGRAM_NAME = 'autosave';
 
 /** Synthetic edge ids: removing them clears `data.parentNodeId` on the child node. */
 const PARENT_EDGE_PREFIX = 'parent-link-';
-
-function wouldCreateParentCycle(nodes, nodeId, newParentId) {
-  if (!newParentId || newParentId === nodeId) return true;
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  let cur = newParentId;
-  const seen = new Set();
-  while (cur) {
-    if (cur === nodeId) return true;
-    if (seen.has(cur)) break;
-    seen.add(cur);
-    cur = byId.get(cur)?.data?.parentNodeId;
-  }
-  return false;
-}
-
-function nodeMenuLabel(n) {
-  if (n.type === 'text') {
-    const t = (n.data?.text ?? '').trim().split(/\n/)[0] || 'Text note';
-    return t.length > 40 ? `${t.slice(0, 37)}…` : t;
-  }
-  if (n.type === 'group') return n.data?.label ?? 'Swimlane';
-  return n.data?.label ?? 'Service';
-}
 
 function buildParentEdges(nodes, edgePalette, manualEdges) {
   const nodeIds = new Set(nodes.map((n) => n.id));
@@ -130,7 +109,13 @@ function syncIdSeqFromNodes(nodes) {
   idSeq = max;
 }
 
-function serializeDiagram(nodes, edges) {
+/**
+ * @param {import('@xyflow/react').Node[]} nodes
+ * @param {import('@xyflow/react').Edge[]} edges
+ * @param {{ omitServiceParentHierarchy?: boolean }} [options] If true, service (icon) nodes omit `parentNodeId` in JSON / server files.
+ */
+function serializeDiagram(nodes, edges, options = {}) {
+  const omitServiceParent = options.omitServiceParentHierarchy === true;
   return {
     version: 2,
     nodes: nodes.map((node) => {
@@ -175,7 +160,7 @@ function serializeDiagram(nodes, edges) {
         data: {
           label: data?.label ?? 'Service',
           iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
-          ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
+          ...(!omitServiceParent && data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
           ...metaFieldsForExport(data),
         },
         ...baseExtra,
@@ -332,6 +317,8 @@ function FlowWorkspace() {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
+  /** Service node: show on-canvas Parent combobox after double-click icon (toggle). */
+  const [serviceParentUiNodeId, setServiceParentUiNodeId] = useState(null);
   const [findQuery, setFindQuery] = useState('');
 
   const [serverFiles, setServerFiles] = useState([]);
@@ -764,21 +751,42 @@ function FlowWorkspace() {
     [selectedNodeId, setNodes]
   );
 
-  const setSelectedParent = useCallback(
-    (parentId) => {
-      if (!selectedNodeId) return;
-      const sel = nodes.find((x) => x.id === selectedNodeId);
-      if (sel?.type === 'group') return;
-      const next = parentId || undefined;
-      if (next && wouldCreateParentCycle(nodes, selectedNodeId, next)) return;
+  const setParentForNode = useCallback(
+    (childNodeId, parentId) => {
+      const child = nodes.find((x) => x.id === childNodeId);
+      if (!child || child.type === 'group') return;
+      const next = (parentId || '').trim() || undefined;
+      if (next && wouldCreateParentCycle(nodes, childNodeId, next)) return;
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === selectedNodeId ? { ...n, data: { ...n.data, parentNodeId: next } } : n
+          n.id === childNodeId ? { ...n, data: { ...n.data, parentNodeId: next } } : n
         )
       );
     },
-    [selectedNodeId, nodes, setNodes]
+    [nodes, setNodes]
   );
+
+  const setSelectedParent = useCallback(
+    (parentId) => {
+      if (!selectedNodeId) return;
+      setParentForNode(selectedNodeId, parentId);
+    },
+    [selectedNodeId, setParentForNode]
+  );
+
+  const toggleServiceParentUi = useCallback((nodeId) => {
+    setSelectedEdgeId(null);
+    setSelectedNodeId(nodeId);
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === nodeId })));
+    setServiceParentUiNodeId((prev) => (prev === nodeId ? null : nodeId));
+  }, [setNodes]);
+
+  useEffect(() => {
+    if (!serviceParentUiNodeId) return;
+    if (selectedNodeId !== serviceParentUiNodeId) {
+      setServiceParentUiNodeId(null);
+    }
+  }, [selectedNodeId, serviceParentUiNodeId]);
 
   const updateSelectedEdgeLabel = useCallback(
     (label) => {
@@ -981,8 +989,22 @@ function FlowWorkspace() {
   }, [getNodes, setNodes, duplicateSelected]);
 
   const diagramActions = useMemo(
-    () => ({ renameNodeById, applyTemplate, insertSwimlane }),
-    [renameNodeById, applyTemplate, insertSwimlane]
+    () => ({
+      renameNodeById,
+      setParentForNode,
+      toggleServiceParentUi,
+      serviceParentUiNodeId,
+      applyTemplate,
+      insertSwimlane,
+    }),
+    [
+      renameNodeById,
+      setParentForNode,
+      toggleServiceParentUi,
+      serviceParentUiNodeId,
+      applyTemplate,
+      insertSwimlane,
+    ]
   );
 
   const downloadBlob = (blob, filename) => {
@@ -1042,7 +1064,11 @@ function FlowWorkspace() {
   };
 
   const exportJson = () => {
-    const json = JSON.stringify(serializeDiagram(nodes, edges), null, 2);
+    const json = JSON.stringify(
+      serializeDiagram(nodes, edges, { omitServiceParentHierarchy: true }),
+      null,
+      2
+    );
     downloadBlob(new Blob([json], { type: 'application/json' }), 'diagram.json');
     commitCheckpoint(nodes, edges);
   };
@@ -1090,7 +1116,7 @@ function FlowWorkspace() {
     }
     const payload = (withReplace) => ({
       name: stem,
-      diagram: serializeDiagram(nodes, edges),
+      diagram: serializeDiagram(nodes, edges, { omitServiceParentHierarchy: true }),
       ...(withReplace ? { replace: true } : {}),
     });
     setServerBusy(true);
@@ -1213,6 +1239,7 @@ function FlowWorkspace() {
             connectionMode={ConnectionMode.Loose}
             snapToGrid={snapGridEnabled}
             snapGrid={[SNAP, SNAP]}
+            zoomOnDoubleClick={false}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             defaultEdgeOptions={defaultEdgeOptions}
@@ -1454,8 +1481,8 @@ function FlowWorkspace() {
                     />
                   </label>
                   <p className="diagram-inspector__hint">
-                    Or double-click the node on the canvas. Icon is fixed unless you replace the node from the
-                    library.
+                    Double-click the <strong>label</strong> on the canvas to rename. On the canvas, double-click the{' '}
+                    <strong>icon</strong> to show Parent; search runs inside the parent dropdown when opened.
                   </p>
                 </>
               )}
@@ -1497,26 +1524,18 @@ function FlowWorkspace() {
                 <>
                   <label className="diagram-inspector__field">
                     <span>Parent (hierarchy)</span>
-                    <select
-                      className="nodrag"
-                      value={selectedNode.data.parentNodeId ?? ''}
-                      onChange={(e) => setSelectedParent(e.target.value)}
-                    >
-                      <option value="">None</option>
-                      {nodes
-                        .filter((n) => n.id !== selectedNode.id)
-                        .filter((n) => n.type !== 'group')
-                        .filter((n) => !wouldCreateParentCycle(nodes, selectedNode.id, n.id))
-                        .map((n) => (
-                          <option key={n.id} value={n.id}>
-                            {nodeMenuLabel(n)}
-                          </option>
-                        ))}
-                    </select>
+                    <ParentHierarchyPicker
+                      nodes={nodes}
+                      childId={selectedNode.id}
+                      value={selectedNode.data.parentNodeId}
+                      onChange={setSelectedParent}
+                      variant="default"
+                    />
                   </label>
                   <p className="diagram-inspector__hint">
-                    Draws an arrow from parent (bottom) to this node (top). Drop icons onto a swimlane to place
-                    them inside the frame.
+                    Open the list to search by <strong>name</strong> or <strong>id</strong> inside the dropdown.
+                    Draws an arrow from parent (bottom) to this node (top). Swimlanes use the frame, not this list.
+                    JSON / server save omit <code>parentNodeId</code> on icon nodes only.
                   </p>
                 </>
               ) : null}
@@ -1524,8 +1543,9 @@ function FlowWorkspace() {
           ) : selectedEdge ? (
             String(selectedEdge.id).startsWith(PARENT_EDGE_PREFIX) ? (
               <p className="diagram-inspector__hint">
-                This is the automatic <strong>parent</strong> link. Change it under the child node’s{' '}
-                <strong>Parent</strong> field, or select this edge and press Delete to clear the parent.
+                This is the automatic <strong>parent</strong> link. Change it from the node’s parent control on
+                the canvas or in <strong>Parent (hierarchy)</strong> here, or select this edge and press Delete to
+                clear the parent.
               </p>
             ) : (
               <>
@@ -1646,15 +1666,16 @@ function FlowWorkspace() {
             <ul>
               <li>{'Drag from a node handle to another node\u2019s handle to connect (any side).'}</li>
               <li>
-                Use <strong>Parent</strong> on a selected node (or drop an icon onto another) for a hierarchy
-                line without drawing it by hand.
+                <strong>Parent (hierarchy)</strong>: double-click a service <strong>icon</strong> on the canvas to
+                show the parent control (search inside its dropdown). The side panel uses the same pattern. Or drop
+                an icon onto another node for a quick parent link.
               </li>
               <li>
                 <strong>Layout</strong> arranges the graph automatically (Dagre, top → bottom).
               </li>
               <li>
-                <strong>Double-click</strong> a service node to rename it (Enter saves, Esc cancels);{' '}
-                <strong>Text note</strong> nodes use a multi-line editor (Esc cancels).
+                <strong>Double-click</strong> the service <strong>label</strong> to rename (Enter saves, Esc
+                cancels); <strong>Text note</strong> nodes use a multi-line editor (Esc cancels).
               </li>
               <li>
                 <strong>PNG 4K</strong> exports at least UHD resolution so zoomed screenshots stay sharp.
