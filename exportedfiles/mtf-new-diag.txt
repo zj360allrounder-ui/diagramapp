@@ -142,8 +142,7 @@
       },
       "data": {
         "label": "wfpreview.monotype.com",
-        "iconKey": "sys_browser",
-        "subtitle": "hello"
+        "iconKey": "sys_browser"
       }
     },
     {

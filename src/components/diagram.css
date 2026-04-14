@@ -1156,6 +1156,19 @@
   opacity: 0.92;
 }
 
+/* When subtitle is explicitly empty: thin target to double-click and add text again */
+.service-node__subtitle-hit {
+  min-height: 6px;
+  margin-top: 0.1rem;
+  border-radius: 4px;
+  cursor: text;
+}
+
+.service-node:hover .service-node__subtitle-hit {
+  background: var(--jd-border-input);
+  opacity: 0.55;
+}
+
 .service-node__input {
   display: block;
   width: 100%;

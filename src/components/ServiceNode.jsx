@@ -4,6 +4,29 @@ import { resolveIcon } from '../lib/iconRegistry.js';
 import { useDiagramActions } from '../context/DiagramActionsContext.jsx';
 import ParentHierarchyPicker from './ParentHierarchyPicker.jsx';
 
+/** No `subtitle` key → show registry title; `subtitle: ''` → hide row; non-empty → custom. */
+function subtitlePresentation(data, registryTitle) {
+  const hasKey = data != null && Object.prototype.hasOwnProperty.call(data, 'subtitle');
+  if (!hasKey || data.subtitle === undefined) {
+    return {
+      showRow: true,
+      displayText: registryTitle,
+      isImplicitDefault: true,
+      editSeed: registryTitle,
+    };
+  }
+  const s = typeof data.subtitle === 'string' ? data.subtitle : '';
+  if (s.trim() === '') {
+    return { showRow: false, displayText: '', isImplicitDefault: false, editSeed: '' };
+  }
+  return {
+    showRow: true,
+    displayText: s.trim(),
+    isImplicitDefault: false,
+    editSeed: s.trim(),
+  };
+}
+
 function ServiceNode({ id, data, selected }) {
   const actions = useDiagramActions();
   const nodes = useStore((s) => s.nodes);
@@ -11,10 +34,7 @@ function ServiceNode({ id, data, selected }) {
   const fill = `#${spec.hex}`;
 
   const registrySubtitle = spec.title;
-  const displaySubtitle =
-    typeof data.subtitle === 'string' && data.subtitle.trim() !== ''
-      ? data.subtitle.trim()
-      : registrySubtitle;
+  const sub = subtitlePresentation(data, registrySubtitle);
 
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState('');
@@ -25,9 +45,9 @@ function ServiceNode({ id, data, selected }) {
     if (editing === 'title') {
       setDraft(data.label ?? '');
     } else if (editing === 'subtitle') {
-      setDraft(displaySubtitle);
+      setDraft(sub.editSeed);
     }
-  }, [editing, data.label, displaySubtitle]);
+  }, [editing, data.label, sub.editSeed]);
 
   const commitTitle = useCallback(() => {
     const next = draft.trim() || 'Untitled';
@@ -53,10 +73,10 @@ function ServiceNode({ id, data, selected }) {
   const startEditSubtitle = useCallback(
     (e) => {
       e.stopPropagation();
-      setDraft(displaySubtitle);
+      setDraft(sub.editSeed);
       setEditing('subtitle');
     },
-    [displaySubtitle]
+    [sub.editSeed]
   );
 
   const onIconDoubleClick = useCallback(
@@ -182,14 +202,20 @@ function ServiceNode({ id, data, selected }) {
                 onClick={(e) => e.stopPropagation()}
                 aria-label="Node subtitle"
               />
-            ) : (
+            ) : sub.showRow ? (
               <div
-                className={`service-node__subtitle nodrag nopan${displaySubtitle === registrySubtitle && !(typeof data.subtitle === 'string' && data.subtitle.trim() !== '') ? ' service-node__subtitle--default' : ''}`}
+                className={`service-node__subtitle nodrag nopan${sub.isImplicitDefault ? ' service-node__subtitle--default' : ''}`}
                 onDoubleClick={startEditSubtitle}
                 title="Double-click to edit subtitle"
               >
-                {displaySubtitle}
+                {sub.displayText}
               </div>
+            ) : (
+              <div
+                className="service-node__subtitle-hit nodrag nopan"
+                onDoubleClick={startEditSubtitle}
+                title="Double-click to add subtitle"
+              />
             )}
           </div>
         </div>

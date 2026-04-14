@@ -161,8 +161,8 @@ function serializeDiagram(nodes, edges, options = {}) {
         data: {
           label: data?.label ?? 'Service',
           iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
-          ...(typeof data?.subtitle === 'string' && data.subtitle.trim() !== ''
-            ? { subtitle: data.subtitle.trim() }
+          ...(Object.prototype.hasOwnProperty.call(data ?? {}, 'subtitle')
+            ? { subtitle: typeof data?.subtitle === 'string' ? data.subtitle : '' }
             : {}),
           ...(!omitServiceParent && data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
           ...metaFieldsForExport(data),
@@ -277,8 +277,8 @@ function diagramDataToFlowState(data, theme) {
       data: {
         label: n.data?.label ?? 'Service',
         iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
-        ...(typeof n.data?.subtitle === 'string' && n.data.subtitle.trim() !== ''
-          ? { subtitle: n.data.subtitle.trim() }
+        ...(Object.prototype.hasOwnProperty.call(n.data ?? {}, 'subtitle')
+          ? { subtitle: typeof n.data?.subtitle === 'string' ? n.data.subtitle : '' }
           : {}),
         ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
         ...metaFieldsFromImport(n.data),
@@ -714,7 +714,9 @@ function FlowWorkspace() {
           const defaultLine = spec.title;
           const t = String(value ?? '').trim();
           const nextData = { ...n.data };
-          if (!t || t === defaultLine) {
+          if (t === '') {
+            nextData.subtitle = '';
+          } else if (t === defaultLine) {
             delete nextData.subtitle;
           } else {
             nextData.subtitle = t;
@@ -884,7 +886,9 @@ function FlowWorkspace() {
           const defaultLine = spec.title;
           const t = String(raw ?? '').trim();
           const nextData = { ...n.data };
-          if (!t || t === defaultLine) {
+          if (t === '') {
+            nextData.subtitle = '';
+          } else if (t === defaultLine) {
             delete nextData.subtitle;
           } else {
             nextData.subtitle = t;
@@ -1552,8 +1556,10 @@ function FlowWorkspace() {
                     <input
                       type="text"
                       value={
-                        selectedNode.data.subtitle != null && String(selectedNode.data.subtitle).trim() !== ''
-                          ? selectedNode.data.subtitle
+                        Object.prototype.hasOwnProperty.call(selectedNode.data ?? {}, 'subtitle')
+                          ? typeof selectedNode.data.subtitle === 'string'
+                            ? selectedNode.data.subtitle
+                            : ''
                           : resolveIcon(selectedNode.data.iconKey ?? DEFAULT_ICON_KEY).title
                       }
                       onChange={(e) => updateSelectedSubtitle(e.target.value)}
@@ -1561,9 +1567,9 @@ function FlowWorkspace() {
                     />
                   </label>
                   <p className="diagram-inspector__hint">
-                    The subtitle defaults to the icon&apos;s registry name; change it for roles (e.g. &quot;Service&quot;,
-                    &quot;Read replica&quot;). Double-click <strong>title</strong> or <strong>subtitle</strong> on the
-                    canvas to edit inline. Double-click the <strong>icon</strong> for Parent (hierarchy).
+                    Leave empty to hide the subtitle row. Match the placeholder text to use the icon&apos;s default name
+                    again. Double-click <strong>title</strong> or the subtitle area on the canvas to edit inline.
+                    Double-click the <strong>icon</strong> for Parent (hierarchy).
                   </p>
                 </>
               )}

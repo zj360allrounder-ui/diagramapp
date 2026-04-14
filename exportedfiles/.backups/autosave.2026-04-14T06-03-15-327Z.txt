@@ -142,8 +142,7 @@
       },
       "data": {
         "label": "wfpreview.monotype.com",
-        "iconKey": "sys_browser",
-        "subtitle": "hello"
+        "iconKey": "sys_browser"
       }
     },
     {
@@ -174,8 +173,8 @@
       "id": "n-17",
       "type": "service",
       "position": {
-        "x": -266.40610535351254,
-        "y": 1.6404430647778412
+        "x": -284.4066440183708,
+        "y": -56.86130759601157
       },
       "data": {
         "label": "MTF Graph API",
@@ -324,17 +323,17 @@
       "targetHandle": "pt-right",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     },
@@ -346,17 +345,17 @@
       "targetHandle": "pt-bottom",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     },
@@ -368,17 +367,17 @@
       "targetHandle": "pt-bottom",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     },
@@ -390,17 +389,17 @@
       "targetHandle": "pt-left",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     },
@@ -412,17 +411,17 @@
       "targetHandle": "pt-left",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     },
@@ -434,39 +433,17 @@
       "targetHandle": "pt-left",
       "type": "smoothstep",
       "style": {
-        "stroke": "#475569",
+        "stroke": "#64748b",
         "strokeWidth": 2,
         "strokeDasharray": "none"
       },
       "labelStyle": {
-        "fill": "#1e293b",
+        "fill": "#e2e8f0",
         "fontSize": 11,
         "fontWeight": 500
       },
       "labelBgStyle": {
-        "fill": "#ffffff",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-17pt-top-n-16pt-bottom",
-      "source": "n-17",
-      "target": "n-16",
-      "sourceHandle": "pt-top",
-      "targetHandle": "pt-bottom",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#475569",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#1e293b",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#ffffff",
+        "fill": "#1a1f2e",
         "fillOpacity": 0.95
       }
     }
