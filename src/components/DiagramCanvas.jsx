@@ -25,6 +25,7 @@ import { duplicateSelection } from '../lib/diagramDuplicate.js';
 import { DIAGRAM_TEMPLATES } from '../lib/diagramTemplates.js';
 import { pickGroupForDrop, getAbsolutePosition } from '../lib/diagramGeometry.js';
 import { TEXT_NOTE_TAGS } from '../lib/textNoteTags.js';
+import { filterNodesByQuery, metaFieldsForExport, metaFieldsFromImport } from '../lib/nodeSearch.js';
 import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import './diagram.css';
@@ -53,6 +54,12 @@ function getEdgePalette(theme) {
 const nodeTypes = { service: ServiceNode, text: TextNode, group: GroupNode };
 
 const SNAP = 20;
+
+/** Browser localStorage key for crash recovery (not a substitute for server save). */
+const DRAFT_STORAGE_KEY = 'jarus-diagram-local-draft-v1';
+const AUTOSAVE_DEBOUNCE_MS = 1200;
+/** Written into each local draft; pre-fills Save as / Load after a refresh. */
+const AUTOSAVE_DIAGRAM_NAME = 'autosave';
 
 /** Synthetic edge ids: removing them clears `data.parentNodeId` on the child node. */
 const PARENT_EDGE_PREFIX = 'parent-link-';
@@ -138,7 +145,7 @@ function serializeDiagram(nodes, edges) {
           id,
           type: 'group',
           position,
-          data: { label: data?.label ?? 'Region' },
+          data: { label: data?.label ?? 'Region', ...metaFieldsForExport(data) },
           style: {
             width: style?.width ?? width ?? 480,
             height: style?.height ?? height ?? 320,
@@ -156,6 +163,7 @@ function serializeDiagram(nodes, edges) {
             text: data?.text ?? '',
             ...(data?.noteTag && data.noteTag !== 'default' ? { noteTag: data.noteTag } : {}),
             ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
+            ...metaFieldsForExport(data),
           },
           ...baseExtra,
         };
@@ -168,6 +176,7 @@ function serializeDiagram(nodes, edges) {
           label: data?.label ?? 'Service',
           iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
           ...(data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
+          ...metaFieldsForExport(data),
         },
         ...baseExtra,
       };
@@ -251,7 +260,7 @@ function diagramDataToFlowState(data, theme) {
         id: String(n.id),
         type: 'group',
         position: n.position || { x: 0, y: 0 },
-        data: { label: n.data?.label ?? 'Region' },
+        data: { label: n.data?.label ?? 'Region', ...metaFieldsFromImport(n.data) },
         style: { width, height },
         zIndex: 0,
         dragHandle: '.group-node__header',
@@ -267,6 +276,7 @@ function diagramDataToFlowState(data, theme) {
           text: n.data?.text ?? n.data?.label ?? 'Double-click to edit',
           ...(n.data?.noteTag ? { noteTag: n.data.noteTag } : {}),
           ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
+          ...metaFieldsFromImport(n.data),
         },
         ...parentExtra,
       };
@@ -279,6 +289,7 @@ function diagramDataToFlowState(data, theme) {
         label: n.data?.label ?? 'Service',
         iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
         ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
+        ...metaFieldsFromImport(n.data),
       },
       ...parentExtra,
     };
@@ -306,14 +317,197 @@ function FlowWorkspace() {
 
   const containerRef = useRef(null);
   const importInputRef = useRef(null);
+  const checkpointRef = useRef(JSON.stringify(serializeDiagram([], [])));
+  const dirtyRef = useRef(false);
+  const recoveryCheckedRef = useRef(false);
   const { screenToFlowPosition, fitView, getIntersectingNodes, getNodes } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChangeBase] = useEdgesState([]);
   const edgesRef = useRef(edges);
   edgesRef.current = edges;
+  const nodesEdgesAutosaveRef = useRef({ nodes, edges });
+  useEffect(() => {
+    nodesEdgesAutosaveRef.current = { nodes, edges };
+  }, [nodes, edges]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [snapGridEnabled, setSnapGridEnabled] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+
+  const [serverFiles, setServerFiles] = useState([]);
+  const [serverStem, setServerStem] = useState('my-diagram');
+  const [loadStem, setLoadStem] = useState('');
+  const [serverMsg, setServerMsg] = useState('');
+  const [serverBusy, setServerBusy] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [dirty, setDirty] = useState(false);
+  /** After auto-restore from localStorage; dismissible notice (restore already applied). */
+  const [autosaveRestoreNotice, setAutosaveRestoreNotice] = useState(null);
+  const [autosaveLocalEnabled, setAutosaveLocalEnabled] = useState(true);
+  const [lastLocalSaveAt, setLastLocalSaveAt] = useState(null);
+
+  const commitCheckpoint = useCallback((nodesArr, edgesArr) => {
+    checkpointRef.current = JSON.stringify(serializeDiagram(nodesArr, edgesArr));
+    setDirty(false);
+    dirtyRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  useEffect(() => {
+    const sig = JSON.stringify(serializeDiagram(nodes, edges));
+    const isDirty = sig !== checkpointRef.current;
+    setDirty(isDirty);
+    dirtyRef.current = isDirty;
+  }, [nodes, edges]);
+
+  const flushDraftToStorage = useCallback(() => {
+    if (!autosaveLocalEnabled) return;
+    try {
+      const { nodes: n, edges: ed } = nodesEdgesAutosaveRef.current;
+      localStorage.setItem(
+        DRAFT_STORAGE_KEY,
+        JSON.stringify({
+          savedAt: Date.now(),
+          name: AUTOSAVE_DIAGRAM_NAME,
+          diagram: serializeDiagram(n, ed),
+        })
+      );
+      setLastLocalSaveAt(Date.now());
+    } catch {
+      /* quota or private mode */
+    }
+  }, [autosaveLocalEnabled]);
+
+  useEffect(() => {
+    if (!autosaveLocalEnabled) return;
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_STORAGE_KEY,
+          JSON.stringify({
+            savedAt: Date.now(),
+            name: AUTOSAVE_DIAGRAM_NAME,
+            diagram: serializeDiagram(nodes, edges),
+          })
+        );
+        setLastLocalSaveAt(Date.now());
+      } catch {
+        /* quota or private mode */
+      }
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [nodes, edges, autosaveLocalEnabled]);
+
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      flushDraftToStorage();
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [flushDraftToStorage]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') flushDraftToStorage();
+    };
+    const onPageHide = () => flushDraftToStorage();
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [flushDraftToStorage]);
+
+  const applyDiagramData = useCallback(
+    (data) => {
+      const { nextNodes, nextEdges } = diagramDataToFlowState(data, theme);
+      const ordered = orderNodesParentsFirst(nextNodes);
+      setNodes(ordered);
+      setEdges(nextEdges);
+      syncIdSeqFromNodes(ordered);
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
+      commitCheckpoint(ordered, nextEdges);
+    },
+    [setNodes, setEdges, theme, commitCheckpoint]
+  );
+
+  useEffect(() => {
+    if (recoveryCheckedRef.current) return;
+    recoveryCheckedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const diagram = parsed?.diagram;
+      if (!diagram || !Array.isArray(diagram.nodes) || !Array.isArray(diagram.edges)) return;
+      if (diagram.nodes.length === 0 && diagram.edges.length === 0) return;
+      const name =
+        typeof parsed.name === 'string' && parsed.name.trim()
+          ? parsed.name.trim()
+          : AUTOSAVE_DIAGRAM_NAME;
+      applyDiagramData(diagram);
+      setServerStem(name);
+      setLoadStem(name);
+      setAutosaveRestoreNotice({
+        savedAt: Number(parsed.savedAt) || Date.now(),
+        name,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [applyDiagramData]);
+
+  const dismissAutosaveNotice = useCallback(() => setAutosaveRestoreNotice(null), []);
+
+  const discardAutosavedDiagram = useCallback(() => {
+    setAutosaveRestoreNotice(null);
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    idSeq = 0;
+    commitCheckpoint([], []);
+    setServerStem('my-diagram');
+    setLoadStem('');
+  }, [setNodes, setEdges, commitCheckpoint]);
+
+  const clearCanvas = useCallback(() => {
+    if (dirtyRef.current) {
+      const ok = window.confirm(
+        'Discard unsaved changes? This clears the canvas and removes the local draft snapshot.'
+      );
+      if (!ok) return;
+    }
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    idSeq = 0;
+    commitCheckpoint([], []);
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [setNodes, setEdges, commitCheckpoint]);
+
+  const findMatches = useMemo(
+    () => filterNodesByQuery(nodes, findQuery).slice(0, 14),
+    [nodes, findQuery]
+  );
 
   const edgesWithParents = useMemo(
     () => [...edges, ...buildParentEdges(nodes, edgePalette, edges)],
@@ -522,6 +716,38 @@ function FlowWorkspace() {
     [selectedNodeId, setNodes]
   );
 
+  const updateSelectedMeta = useCallback(
+    (field, value) => {
+      if (!selectedNodeId) return;
+      const v = String(value).trim();
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== selectedNodeId) return n;
+          const nextData = { ...n.data };
+          if (v) nextData[field] = v;
+          else delete nextData[field];
+          return { ...n, data: nextData };
+        })
+      );
+    },
+    [selectedNodeId, setNodes]
+  );
+
+  const focusNodeById = useCallback(
+    (id) => {
+      setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === id })));
+      setSelectedNodeId(id);
+      setSelectedEdgeId(null);
+      setFindQuery('');
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          fitView({ nodes: [{ id }], padding: 0.5, duration: 420, maxZoom: 1.35 }).catch(() => {});
+        }, 80);
+      });
+    },
+    [setNodes, fitView]
+  );
+
   const updateGroupDimensions = useCallback(
     (dim, raw) => {
       if (!selectedNodeId) return;
@@ -582,14 +808,6 @@ function FlowWorkspace() {
       fitView({ padding: 0.2, duration: 280 });
     }, 120);
   }, [edgesWithParents, setNodes, fitView]);
-
-  const clearCanvas = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-    setSelectedNodeId(null);
-    setSelectedEdgeId(null);
-    idSeq = 0;
-  }, [setNodes, setEdges]);
 
   const renameNodeById = useCallback(
     (nodeId, value) => {
@@ -826,25 +1044,19 @@ function FlowWorkspace() {
   const exportJson = () => {
     const json = JSON.stringify(serializeDiagram(nodes, edges), null, 2);
     downloadBlob(new Blob([json], { type: 'application/json' }), 'diagram.json');
+    commitCheckpoint(nodes, edges);
   };
-
-  const applyDiagramData = useCallback(
-    (data) => {
-      const { nextNodes, nextEdges } = diagramDataToFlowState(data, theme);
-      const ordered = orderNodesParentsFirst(nextNodes);
-      setNodes(ordered);
-      setEdges(nextEdges);
-      syncIdSeqFromNodes(ordered);
-      setSelectedNodeId(null);
-      setSelectedEdgeId(null);
-    },
-    [setNodes, setEdges, theme]
-  );
 
   const onImportFile = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (dirtyRef.current) {
+      const ok = window.confirm(
+        'Replace the canvas with this file? Unsaved changes since your last JSON export, server save, or import will be lost.'
+      );
+      if (!ok) return;
+    }
     try {
       const text = await file.text();
       const data = parseDiagramJson(text);
@@ -853,13 +1065,6 @@ function FlowWorkspace() {
       alert(err instanceof Error ? err.message : 'Could not import diagram.');
     }
   };
-
-  const [serverFiles, setServerFiles] = useState([]);
-  const [serverStem, setServerStem] = useState('my-diagram');
-  const [loadStem, setLoadStem] = useState('');
-  const [serverMsg, setServerMsg] = useState('');
-  const [serverBusy, setServerBusy] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
 
   const refreshServerFiles = useCallback(async () => {
     try {
@@ -916,6 +1121,7 @@ function FlowWorkspace() {
       setServerMsg(
         j.backupPath ? `Saved ${savedPath} (previous copy: ${j.backupPath})` : `Saved ${savedPath}`
       );
+      commitCheckpoint(nodes, edges);
       await refreshServerFiles();
       setLoadStem(stem);
     } catch (err) {
@@ -930,6 +1136,12 @@ function FlowWorkspace() {
     if (!stem) {
       alert('Pick a saved file or enter a valid name.');
       return;
+    }
+    if (dirtyRef.current) {
+      const ok = window.confirm(
+        'Replace the canvas with the file from the server? Unsaved changes since your last checkpoint will be lost.'
+      );
+      if (!ok) return;
     }
     setServerBusy(true);
     try {
@@ -957,6 +1169,30 @@ function FlowWorkspace() {
   return (
     <DiagramActionsContext.Provider value={diagramActions}>
       <div className="diagram-workspace">
+        {autosaveRestoreNotice ? (
+          <div className="diagram-draft-banner diagram-draft-banner--notice" role="status">
+            <p className="diagram-draft-banner__text">
+              Restored browser autosave <strong>{autosaveRestoreNotice.name}</strong>
+              {' · '}
+              <time dateTime={new Date(autosaveRestoreNotice.savedAt).toISOString()}>
+                {new Date(autosaveRestoreNotice.savedAt).toLocaleString()}
+              </time>
+            </p>
+            <div className="diagram-draft-banner__actions">
+              <button
+                type="button"
+                className="diagram-draft-banner__btn diagram-draft-banner__btn--ghost"
+                onClick={discardAutosavedDiagram}
+              >
+                Clear & remove draft
+              </button>
+              <button type="button" className="diagram-draft-banner__btn" onClick={dismissAutosaveNotice}>
+                OK
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <div className="diagram-workspace__main">
         <IconPalette />
         <div
           className="diagram-flow-wrap"
@@ -1098,6 +1334,40 @@ function FlowWorkspace() {
           </button>
           <aside className="diagram-inspector" id="diagram-inspector-panel">
           <h3>Selection</h3>
+          <div className="diagram-find-node">
+            <h4 className="diagram-inspector__subheading">Find node</h4>
+            <label className="diagram-inspector__field diagram-find-node__search">
+              <span>Search</span>
+              <input
+                type="search"
+                className="nodrag"
+                value={findQuery}
+                onChange={(e) => setFindQuery(e.target.value)}
+                placeholder="Label, id, owner, repo, env…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            {findMatches.length > 0 ? (
+              <ul className="diagram-find-node__hits">
+                {findMatches.map((n) => (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      className="diagram-find-node__hit"
+                      onClick={() => focusNodeById(n.id)}
+                    >
+                      <span className="diagram-find-node__hit-type">{n.type}</span>
+                      <span className="diagram-find-node__hit-label">{nodeMenuLabel(n)}</span>
+                      <span className="diagram-find-node__hit-id">{n.id}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : findQuery.trim() ? (
+              <p className="diagram-find-node__empty">No matches.</p>
+            ) : null}
+          </div>
           {selectedNode ? (
             <>
               {selectedNode.type === 'group' ? (
@@ -1189,6 +1459,40 @@ function FlowWorkspace() {
                   </p>
                 </>
               )}
+              <h4 className="diagram-inspector__subheading">Inventory</h4>
+              <label className="diagram-inspector__field">
+                <span>Owner</span>
+                <input
+                  type="text"
+                  className="nodrag"
+                  value={selectedNode.data.owner ?? ''}
+                  onChange={(e) => updateSelectedMeta('owner', e.target.value)}
+                  placeholder="Team or person"
+                />
+              </label>
+              <label className="diagram-inspector__field">
+                <span>Repo / link</span>
+                <input
+                  type="text"
+                  className="nodrag"
+                  value={selectedNode.data.repoUrl ?? ''}
+                  onChange={(e) => updateSelectedMeta('repoUrl', e.target.value)}
+                  placeholder="https://github.com/org/repo"
+                />
+              </label>
+              <label className="diagram-inspector__field">
+                <span>Environment</span>
+                <input
+                  type="text"
+                  className="nodrag"
+                  value={selectedNode.data.env ?? ''}
+                  onChange={(e) => updateSelectedMeta('env', e.target.value)}
+                  placeholder="e.g. prod, staging"
+                />
+              </label>
+              <p className="diagram-inspector__hint">
+                Optional fields for inventory and search. Saved with JSON / server. Clear a field to remove it.
+              </p>
               {selectedNode.type !== 'group' ? (
                 <>
                   <label className="diagram-inspector__field">
@@ -1244,6 +1548,36 @@ function FlowWorkspace() {
               Select a single node or edge to edit its label or text.
             </p>
           )}
+
+          <div className="diagram-local-draft">
+            <h3 className="diagram-server-store__title">Local draft</h3>
+            <p className="diagram-server-store__intro">
+              Each snapshot is tagged <code>{AUTOSAVE_DIAGRAM_NAME}</code> (~
+              {Math.round(AUTOSAVE_DEBOUNCE_MS / 1000)}s after you change the graph). Refreshing the page reloads
+              that draft automatically; <strong>Save to folder</strong> writes <code>exportedfiles/</code> on disk.
+            </p>
+            <label className="diagram-inspector__field diagram-local-draft__row">
+              <span>Autosave draft locally</span>
+              <input
+                type="checkbox"
+                className="nodrag"
+                checked={autosaveLocalEnabled}
+                onChange={(e) => setAutosaveLocalEnabled(e.target.checked)}
+              />
+            </label>
+            <p className="diagram-local-draft__status" aria-live="polite">
+              {dirty ? (
+                <span className="diagram-local-draft__dirty">Unsaved changes (vs last export / save / import)</span>
+              ) : (
+                <span className="diagram-local-draft__clean">No pending changes since last checkpoint.</span>
+              )}
+              {lastLocalSaveAt ? (
+                <span className="diagram-local-draft__time">
+                  Last browser snapshot: {new Date(lastLocalSaveAt).toLocaleTimeString()}
+                </span>
+              ) : null}
+            </p>
+          </div>
 
           <div className="diagram-server-store">
             <h3 className="diagram-server-store__title">exportedfiles</h3>
@@ -1333,10 +1667,20 @@ function FlowWorkspace() {
                 (Shift = 8px). <strong>⌘D / Ctrl+D</strong> duplicates selection.
               </li>
               <li>
+                <strong>Find node</strong> searches label, id, owner, repo, and environment; click a result to
+                select and zoom. Use <strong>Inventory</strong> on a selected node for owner, repo link, and env.
+              </li>
+              <li>
                 <strong>Templates</strong> and <strong>+ Swimlane</strong> live in the library panel; JSON export
-                is version 2 for swimlanes and note tags.
+                includes swimlanes, note tags, and inventory fields.
               </li>
               <li>JSON export includes layout and icons for round-trip editing.</li>
+              <li>
+                Local autosave reloads after a refresh (banner shows <strong>{AUTOSAVE_DIAGRAM_NAME}</strong> and
+                pre-fills Save as). Closing the tab with pending edits can still show a browser warning.{' '}
+                <strong>Clear</strong>, <strong>Import</strong>, and <strong>Load from folder</strong> confirm when
+                you would lose changes.
+              </li>
               <li>
                 For server save/load, run <code>npm run dev:all</code> (Vite + API) or{' '}
                 <code>npm start</code> after build.
@@ -1344,6 +1688,7 @@ function FlowWorkspace() {
             </ul>
           </div>
         </aside>
+        </div>
         </div>
       </div>
     </DiagramActionsContext.Provider>

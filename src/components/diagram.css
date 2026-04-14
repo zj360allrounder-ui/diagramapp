@@ -1,8 +1,109 @@
 .diagram-workspace {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
   min-height: 0;
+}
+
+.diagram-workspace__main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.diagram-draft-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  flex-shrink: 0;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--jd-border);
+  background: color-mix(in srgb, var(--jd-accent) 12%, var(--jd-bg-panel));
+}
+
+.diagram-draft-banner__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--jd-text);
+}
+
+.diagram-draft-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.diagram-draft-banner__btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--jd-border-btn);
+  background: var(--jd-bg-btn);
+  color: var(--jd-text-secondary);
+  cursor: pointer;
+}
+
+.diagram-draft-banner__btn:hover {
+  background: var(--jd-bg-btn-hover);
+}
+
+.diagram-draft-banner__btn--ghost {
+  background: transparent;
+  border-color: var(--jd-border-input);
+  color: var(--jd-text-muted);
+  font-weight: 500;
+}
+
+.diagram-draft-banner--notice {
+  background: color-mix(in srgb, var(--jd-success, #22c55e) 14%, var(--jd-bg-panel));
+}
+
+.diagram-local-draft {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--jd-border);
+}
+
+.diagram-local-draft__row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.diagram-local-draft__row input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.diagram-local-draft__status {
+  margin: 0.55rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--jd-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.diagram-local-draft__dirty {
+  color: var(--jd-warning, #ca8a04);
+  font-weight: 600;
+}
+
+.diagram-local-draft__clean {
+  color: var(--jd-text-dim);
+}
+
+.diagram-local-draft__time {
+  color: var(--jd-text-dim);
 }
 
 .icon-palette {
@@ -446,6 +547,90 @@
   margin: 0 0 0.65rem;
   font-size: 0.8125rem;
   font-weight: 600;
+}
+
+.diagram-inspector__subheading {
+  margin: 0.85rem 0 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--jd-text-dim);
+}
+
+.diagram-find-node {
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--jd-border);
+}
+
+.diagram-find-node__search {
+  margin-bottom: 0;
+}
+
+.diagram-find-node__hits {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--jd-border-muted);
+  border-radius: 6px;
+  background: var(--jd-bg-panel-2);
+}
+
+.diagram-find-node__hits li + li {
+  border-top: 1px solid var(--jd-border-muted);
+}
+
+.diagram-find-node__hit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--jd-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.diagram-find-node__hit:hover {
+  background: var(--jd-bg-btn-hover);
+}
+
+.diagram-find-node__hit-type {
+  flex-shrink: 0;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--jd-text-dim);
+}
+
+.diagram-find-node__hit-label {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.diagram-find-node__hit-id {
+  flex-basis: 100%;
+  font-size: 0.625rem;
+  color: var(--jd-text-dim);
+  font-family: ui-monospace, monospace;
+}
+
+.diagram-find-node__empty {
+  margin: 0.4rem 0 0;
+  font-size: 0.6875rem;
+  color: var(--jd-text-dim);
 }
 
 .diagram-inspector__field {
