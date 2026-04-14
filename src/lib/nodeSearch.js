@@ -7,7 +7,7 @@ export function getNodeSearchHaystack(n) {
   if (n.type === 'text') {
     parts.push(d.text);
   } else {
-    parts.push(d.label);
+    parts.push(d.label, d.subtitle);
   }
   parts.push(d.owner, d.repoUrl, d.env);
   return parts

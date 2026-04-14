@@ -62,11 +62,23 @@
       }
     },
     {
+      "id": "n-6",
+      "type": "service",
+      "position": {
+        "x": -1381.2735020170746,
+        "y": 186.08030926765974
+      },
+      "data": {
+        "label": "Customer Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
       "id": "n-8",
       "type": "service",
       "position": {
-        "x": -454.4140112860278,
-        "y": 243.75386045205295
+        "x": -349.2571425846022,
+        "y": 268.65943461818006
       },
       "data": {
         "label": "Mosaic Sync Service",
@@ -89,8 +101,8 @@
       "id": "n-10",
       "type": "service",
       "position": {
-        "x": -460.61596354957703,
-        "y": -86.21928435520427
+        "x": -575.2363187255748,
+        "y": -122.26342120300232
       },
       "data": {
         "label": "secure.monotype.com",
@@ -125,8 +137,8 @@
       "id": "n-13",
       "type": "service",
       "position": {
-        "x": -41.653006257043224,
-        "y": 116.31447818926654
+        "x": 69.03843448129953,
+        "y": 120.46540721695439
       },
       "data": {
         "label": "Asset Service Hades",
@@ -173,8 +185,8 @@
       "id": "n-17",
       "type": "service",
       "position": {
-        "x": -284.4066440183708,
-        "y": -56.86130759601157
+        "x": -274.7211429537658,
+        "y": -31.955733429884457
       },
       "data": {
         "label": "MTF Graph API",
@@ -185,8 +197,8 @@
       "id": "n-18",
       "type": "service",
       "position": {
-        "x": -458.71728341076516,
-        "y": 94.80424615462226
+        "x": -488.3132568513356,
+        "y": 104.17989960373146
       },
       "data": {
         "label": "Mosaic Asset Management Service",
@@ -197,8 +209,8 @@
       "id": "n-19",
       "type": "service",
       "position": {
-        "x": -63.71797655466938,
-        "y": -38.21204713267184
+        "x": -209.00049252374424,
+        "y": 111.22139786409087
       },
       "data": {
         "label": "User Management Service",
@@ -209,8 +221,8 @@
       "id": "n-20",
       "type": "service",
       "position": {
-        "x": -91.93902490187929,
-        "y": 471.12358492376876
+        "x": -82.2535238372743,
+        "y": 264.96077654860545
       },
       "data": {
         "label": "Customer Management Service",
@@ -221,8 +233,8 @@
       "id": "n-21",
       "type": "service",
       "position": {
-        "x": -285.57124825206006,
-        "y": 373.5193049589627
+        "x": -183.18166556909298,
+        "y": 485.5943887065347
       },
       "data": {
         "label": "Catalog Service",
@@ -233,8 +245,8 @@
       "id": "n-22",
       "type": "service",
       "position": {
-        "x": -164.0578210920832,
-        "y": 276.72832842838875
+        "x": 158.33100005834004,
+        "y": 423.3944874066929
       },
       "data": {
         "label": "Favourite Service",
@@ -245,8 +257,8 @@
       "id": "n-23",
       "type": "service",
       "position": {
-        "x": 174.98020144138547,
-        "y": 470.16006184621153
+        "x": 266.3006400505182,
+        "y": 262.61361046181895
       },
       "data": {
         "label": "rabbitmq-prod.monotype.com",
@@ -257,8 +269,8 @@
       "id": "n-24",
       "type": "service",
       "position": {
-        "x": 164.36768376181323,
-        "y": 115.49561010599177
+        "x": 279.21005352784385,
+        "y": 118.26289612445035
       },
       "data": {
         "label": "Translation Service Hades",
@@ -269,47 +281,11 @@
       "id": "n-25",
       "type": "service",
       "position": {
-        "x": 375.64972925896075,
-        "y": 114.36331854192758
+        "x": 150.11591875458737,
+        "y": 0.904591785126243
       },
       "data": {
         "label": "License Management Service",
-        "iconKey": "k8s_deploy"
-      }
-    },
-    {
-      "id": "n-26",
-      "type": "service",
-      "position": {
-        "x": 194.78515117069065,
-        "y": -179.99189234282164
-      },
-      "data": {
-        "label": "Mosaic LIbrary",
-        "iconKey": "k8s_deploy"
-      }
-    },
-    {
-      "id": "n-27",
-      "type": "service",
-      "position": {
-        "x": 334.3533301774247,
-        "y": -406.83397391793443
-      },
-      "data": {
-        "label": "earch-mtf-prod-es-w5jnrj355fgtbbxtgqo3trmlhq.us-east-1.es.amazonaws.com",
-        "iconKey": "sys_browser"
-      }
-    },
-    {
-      "id": "n-28",
-      "type": "service",
-      "position": {
-        "x": -195.8192022424612,
-        "y": -431.66755758294084
-      },
-      "data": {
-        "label": "MTF Manage API",
         "iconKey": "k8s_deploy"
       }
     }
@@ -343,94 +319,6 @@
       "target": "n-14",
       "sourceHandle": "pt-top",
       "targetHandle": "pt-bottom",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-top-n-27pt-bottom",
-      "source": "n-16",
-      "target": "n-27",
-      "sourceHandle": "pt-top",
-      "targetHandle": "pt-bottom",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-right-n-26pt-left",
-      "source": "n-16",
-      "target": "n-26",
-      "sourceHandle": "pt-right",
-      "targetHandle": "pt-left",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-left-n-28pt-left",
-      "source": "n-16",
-      "target": "n-28",
-      "sourceHandle": "pt-left",
-      "targetHandle": "pt-left",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-4pt-right-n-16pt-left",
-      "source": "n-4",
-      "target": "n-16",
-      "sourceHandle": "pt-right",
-      "targetHandle": "pt-left",
       "type": "smoothstep",
       "style": {
         "stroke": "#64748b",

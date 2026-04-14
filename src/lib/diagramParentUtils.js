@@ -24,7 +24,11 @@ export function nodeMenuLabel(n) {
     return t.length > 40 ? `${t.slice(0, 37)}…` : t;
   }
   if (n.type === 'group') return n.data?.label ?? 'Swimlane';
-  return n.data?.label ?? 'Service';
+  const title = n.data?.label ?? 'Service';
+  const sub = typeof n.data?.subtitle === 'string' ? n.data.subtitle.trim() : '';
+  if (!sub) return title;
+  const both = `${title} (${sub})`;
+  return both.length > 48 ? `${both.slice(0, 45)}…` : both;
 }
 
 /** Eligible hierarchy parents for a non-group child (excludes swimlanes and cycles). */

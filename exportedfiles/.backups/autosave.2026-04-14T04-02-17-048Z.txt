@@ -1,0 +1,241 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -792.0568229789143,
+        "y": -249.06868386296904
+      },
+      "data": {
+        "label": "Enterprise",
+        "iconKey": "sys_browser"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -790.6600798020628,
+        "y": -113.30212721557932
+      },
+      "data": {
+        "label": "Membership CMS",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-3",
+      "type": "service",
+      "position": {
+        "x": -791.8188119388517,
+        "y": 4.415877181008483
+      },
+      "data": {
+        "label": "MTF Login Service",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-4",
+      "type": "service",
+      "position": {
+        "x": -792.3102479150546,
+        "y": 129.0814815401017
+      },
+      "data": {
+        "label": "MTF Authorizer",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-5",
+      "type": "service",
+      "position": {
+        "x": -1056.8120603830534,
+        "y": -114.91989886731697
+      },
+      "data": {
+        "label": "enterprise.monotype.com-sql-server",
+        "iconKey": "sys_database"
+      }
+    },
+    {
+      "id": "n-6",
+      "type": "service",
+      "position": {
+        "x": -1381.2735020170746,
+        "y": 186.08030926765974
+      },
+      "data": {
+        "label": "Customer Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-7",
+      "type": "service",
+      "position": {
+        "x": -1231.6639334633985,
+        "y": 349.3788026531401
+      },
+      "data": {
+        "label": "User Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-8",
+      "type": "service",
+      "position": {
+        "x": -999.4221486244576,
+        "y": 349.63666461231367
+      },
+      "data": {
+        "label": "Mosaic Sync Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-9",
+      "type": "service",
+      "position": {
+        "x": -1354.5991445895886,
+        "y": 34.91811297643744
+      },
+      "data": {
+        "label": "redis-15901.mc1490-0.us-east-1-mz.ec2.cloud.rlrcp.com",
+        "iconKey": "redis"
+      }
+    },
+    {
+      "id": "n-10",
+      "type": "service",
+      "position": {
+        "x": -575.2363187255748,
+        "y": -122.26342120300232
+      },
+      "data": {
+        "label": "secure.monotype.com",
+        "iconKey": "auth0"
+      }
+    },
+    {
+      "id": "n-11",
+      "type": "service",
+      "position": {
+        "x": -1028.9753970814388,
+        "y": 512.574255134591
+      },
+      "data": {
+        "label": "Reporting Service service.monotype.com",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-12",
+      "type": "service",
+      "position": {
+        "x": -701.3319107129909,
+        "y": 425.28212521756626
+      },
+      "data": {
+        "label": "redis-12729.mc1490-1.us-east-2-mz.ec2.cloud.rlrcp.com",
+        "iconKey": "redis"
+      }
+    },
+    {
+      "id": "n-13",
+      "type": "service",
+      "position": {
+        "x": -644.5000559017908,
+        "y": 276.5519519882554
+      },
+      "data": {
+        "label": "Asset Service Hades",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-14",
+      "type": "service",
+      "position": {
+        "x": -801.6205144597337,
+        "y": -434.0728036837176
+      },
+      "data": {
+        "label": "wfpreview.monotype.com",
+        "iconKey": "sys_browser"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "xy-edge__n-10pt-left-n-3pt-right",
+      "source": "n-10",
+      "target": "n-3",
+      "sourceHandle": "pt-left",
+      "targetHandle": "pt-right",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "xy-edge__n-8pt-right-n-13pt-left",
+      "source": "n-8",
+      "target": "n-13",
+      "sourceHandle": "pt-right",
+      "targetHandle": "pt-left",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "xy-edge__n-1pt-top-n-14pt-bottom",
+      "source": "n-1",
+      "target": "n-14",
+      "sourceHandle": "pt-top",
+      "targetHandle": "pt-bottom",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    }
+  ]
+}

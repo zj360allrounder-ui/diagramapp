@@ -62,6 +62,18 @@
       }
     },
     {
+      "id": "n-6",
+      "type": "service",
+      "position": {
+        "x": -1381.2735020170746,
+        "y": 186.08030926765974
+      },
+      "data": {
+        "label": "Customer Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
       "id": "n-8",
       "type": "service",
       "position": {
@@ -89,8 +101,8 @@
       "id": "n-10",
       "type": "service",
       "position": {
-        "x": -460.61596354957703,
-        "y": -86.21928435520427
+        "x": -575.2363187255748,
+        "y": -122.26342120300232
       },
       "data": {
         "label": "secure.monotype.com",
@@ -185,8 +197,8 @@
       "id": "n-18",
       "type": "service",
       "position": {
-        "x": -458.71728341076516,
-        "y": 94.80424615462226
+        "x": -514.602474026692,
+        "y": 93.1107555298972
       },
       "data": {
         "label": "Mosaic Asset Management Service",
@@ -276,42 +288,6 @@
         "label": "License Management Service",
         "iconKey": "k8s_deploy"
       }
-    },
-    {
-      "id": "n-26",
-      "type": "service",
-      "position": {
-        "x": 194.78515117069065,
-        "y": -179.99189234282164
-      },
-      "data": {
-        "label": "Mosaic LIbrary",
-        "iconKey": "k8s_deploy"
-      }
-    },
-    {
-      "id": "n-27",
-      "type": "service",
-      "position": {
-        "x": 334.3533301774247,
-        "y": -406.83397391793443
-      },
-      "data": {
-        "label": "earch-mtf-prod-es-w5jnrj355fgtbbxtgqo3trmlhq.us-east-1.es.amazonaws.com",
-        "iconKey": "sys_browser"
-      }
-    },
-    {
-      "id": "n-28",
-      "type": "service",
-      "position": {
-        "x": -195.8192022424612,
-        "y": -431.66755758294084
-      },
-      "data": {
-        "label": "MTF Manage API",
-        "iconKey": "k8s_deploy"
-      }
     }
   ],
   "edges": [
@@ -343,94 +319,6 @@
       "target": "n-14",
       "sourceHandle": "pt-top",
       "targetHandle": "pt-bottom",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-top-n-27pt-bottom",
-      "source": "n-16",
-      "target": "n-27",
-      "sourceHandle": "pt-top",
-      "targetHandle": "pt-bottom",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-right-n-26pt-left",
-      "source": "n-16",
-      "target": "n-26",
-      "sourceHandle": "pt-right",
-      "targetHandle": "pt-left",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-16pt-left-n-28pt-left",
-      "source": "n-16",
-      "target": "n-28",
-      "sourceHandle": "pt-left",
-      "targetHandle": "pt-left",
-      "type": "smoothstep",
-      "style": {
-        "stroke": "#64748b",
-        "strokeWidth": 2,
-        "strokeDasharray": "none"
-      },
-      "labelStyle": {
-        "fill": "#e2e8f0",
-        "fontSize": 11,
-        "fontWeight": 500
-      },
-      "labelBgStyle": {
-        "fill": "#1a1f2e",
-        "fillOpacity": 0.95
-      }
-    },
-    {
-      "id": "xy-edge__n-4pt-right-n-16pt-left",
-      "source": "n-4",
-      "target": "n-16",
-      "sourceHandle": "pt-right",
-      "targetHandle": "pt-left",
       "type": "smoothstep",
       "style": {
         "stroke": "#64748b",

@@ -185,8 +185,8 @@
       "id": "n-18",
       "type": "service",
       "position": {
-        "x": -458.71728341076516,
-        "y": 94.80424615462226
+        "x": -514.602474026692,
+        "y": 93.1107555298972
       },
       "data": {
         "label": "Mosaic Asset Management Service",

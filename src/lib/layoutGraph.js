@@ -1,7 +1,7 @@
 import dagre from '@dagrejs/dagre';
 
-const DEFAULT_W = 168;
-const DEFAULT_H = 92;
+const DEFAULT_W = 216;
+const DEFAULT_H = 76;
 const TEXT_W = 240;
 const TEXT_H = 96;
 const GROUP_W = 480;

@@ -17,7 +17,7 @@ import ServiceNode from './ServiceNode.jsx';
 import TextNode from './TextNode.jsx';
 import GroupNode from './GroupNode.jsx';
 import IconPalette, { DND_TYPE } from './IconPalette.jsx';
-import { DEFAULT_ICON_KEY } from '../lib/iconRegistry.js';
+import { DEFAULT_ICON_KEY, resolveIcon } from '../lib/iconRegistry.js';
 import { layoutWithDagre } from '../lib/layoutGraph.js';
 import { orderNodesParentsFirst } from '../lib/orderNodesByParent.js';
 import { computeAlignedPositions, computeDistributedPositions } from '../lib/diagramAlignment.js';
@@ -161,6 +161,9 @@ function serializeDiagram(nodes, edges, options = {}) {
         data: {
           label: data?.label ?? 'Service',
           iconKey: data?.iconKey ?? DEFAULT_ICON_KEY,
+          ...(typeof data?.subtitle === 'string' && data.subtitle.trim() !== ''
+            ? { subtitle: data.subtitle.trim() }
+            : {}),
           ...(!omitServiceParent && data?.parentNodeId ? { parentNodeId: data.parentNodeId } : {}),
           ...metaFieldsForExport(data),
         },
@@ -274,6 +277,9 @@ function diagramDataToFlowState(data, theme) {
       data: {
         label: n.data?.label ?? 'Service',
         iconKey: n.data?.iconKey ?? DEFAULT_ICON_KEY,
+        ...(typeof n.data?.subtitle === 'string' && n.data.subtitle.trim() !== ''
+          ? { subtitle: n.data.subtitle.trim() }
+          : {}),
         ...(n.data?.parentNodeId ? { parentNodeId: String(n.data.parentNodeId) } : {}),
         ...metaFieldsFromImport(n.data),
       },
@@ -698,6 +704,28 @@ function FlowWorkspace() {
     [selectedNodeId, setNodes]
   );
 
+  const updateSelectedSubtitle = useCallback(
+    (value) => {
+      if (!selectedNodeId) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== selectedNodeId || n.type !== 'service') return n;
+          const spec = resolveIcon(n.data?.iconKey ?? DEFAULT_ICON_KEY);
+          const defaultLine = spec.title;
+          const t = String(value ?? '').trim();
+          const nextData = { ...n.data };
+          if (!t || t === defaultLine) {
+            delete nextData.subtitle;
+          } else {
+            nextData.subtitle = t;
+          }
+          return { ...n, data: nextData };
+        })
+      );
+    },
+    [selectedNodeId, setNodes]
+  );
+
   const updateSelectedNoteTag = useCallback(
     (tag) => {
       if (!selectedNodeId) return;
@@ -841,6 +869,27 @@ function FlowWorkspace() {
             return { ...n, data: { ...n.data, text: value } };
           }
           return { ...n, data: { ...n.data, label: value } };
+        })
+      );
+    },
+    [setNodes]
+  );
+
+  const setServiceNodeSubtitleById = useCallback(
+    (nodeId, raw) => {
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== nodeId || n.type !== 'service') return n;
+          const spec = resolveIcon(n.data?.iconKey ?? DEFAULT_ICON_KEY);
+          const defaultLine = spec.title;
+          const t = String(raw ?? '').trim();
+          const nextData = { ...n.data };
+          if (!t || t === defaultLine) {
+            delete nextData.subtitle;
+          } else {
+            nextData.subtitle = t;
+          }
+          return { ...n, data: nextData };
         })
       );
     },
@@ -1006,6 +1055,7 @@ function FlowWorkspace() {
   const diagramActions = useMemo(
     () => ({
       renameNodeById,
+      setServiceNodeSubtitleById,
       setParentForNode,
       toggleServiceParentUi,
       serviceParentUiNodeId,
@@ -1014,6 +1064,7 @@ function FlowWorkspace() {
     }),
     [
       renameNodeById,
+      setServiceNodeSubtitleById,
       setParentForNode,
       toggleServiceParentUi,
       serviceParentUiNodeId,
@@ -1385,7 +1436,7 @@ function FlowWorkspace() {
                 className="nodrag"
                 value={findQuery}
                 onChange={(e) => setFindQuery(e.target.value)}
-                placeholder="Label, id, owner, repo, env…"
+                placeholder="Title, subtitle, id, owner, repo, env…"
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -1488,16 +1539,31 @@ function FlowWorkspace() {
               ) : (
                 <>
                   <label className="diagram-inspector__field">
-                    <span>Node label</span>
+                    <span>Title</span>
                     <input
                       type="text"
                       value={selectedNode.data.label ?? ''}
                       onChange={(e) => updateSelectedLabel(e.target.value)}
+                      placeholder="e.g. User Management"
+                    />
+                  </label>
+                  <label className="diagram-inspector__field">
+                    <span>Subtitle</span>
+                    <input
+                      type="text"
+                      value={
+                        selectedNode.data.subtitle != null && String(selectedNode.data.subtitle).trim() !== ''
+                          ? selectedNode.data.subtitle
+                          : resolveIcon(selectedNode.data.iconKey ?? DEFAULT_ICON_KEY).title
+                      }
+                      onChange={(e) => updateSelectedSubtitle(e.target.value)}
+                      placeholder={resolveIcon(selectedNode.data.iconKey ?? DEFAULT_ICON_KEY).title}
                     />
                   </label>
                   <p className="diagram-inspector__hint">
-                    Double-click the <strong>label</strong> on the canvas to rename. On the canvas, double-click the{' '}
-                    <strong>icon</strong> to show Parent; search runs inside the parent dropdown when opened.
+                    The subtitle defaults to the icon&apos;s registry name; change it for roles (e.g. &quot;Service&quot;,
+                    &quot;Read replica&quot;). Double-click <strong>title</strong> or <strong>subtitle</strong> on the
+                    canvas to edit inline. Double-click the <strong>icon</strong> for Parent (hierarchy).
                   </p>
                 </>
               )}

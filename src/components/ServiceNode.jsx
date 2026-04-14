@@ -9,33 +9,54 @@ function ServiceNode({ id, data, selected }) {
   const nodes = useStore((s) => s.nodes);
   const spec = resolveIcon(data.iconKey);
   const fill = `#${spec.hex}`;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(data.label ?? '');
+
+  const registrySubtitle = spec.title;
+  const displaySubtitle =
+    typeof data.subtitle === 'string' && data.subtitle.trim() !== ''
+      ? data.subtitle.trim()
+      : registrySubtitle;
+
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState('');
 
   const parentUiOpen = actions?.serviceParentUiNodeId === id;
 
   useEffect(() => {
-    if (!editing) setDraft(data.label ?? '');
-  }, [data.label, editing]);
+    if (editing === 'title') {
+      setDraft(data.label ?? '');
+    } else if (editing === 'subtitle') {
+      setDraft(displaySubtitle);
+    }
+  }, [editing, data.label, displaySubtitle]);
 
-  const commit = useCallback(() => {
+  const commitTitle = useCallback(() => {
     const next = draft.trim() || 'Untitled';
     actions?.renameNodeById(id, next);
-    setEditing(false);
+    setEditing(null);
+  }, [actions, id, draft]);
+
+  const commitSubtitle = useCallback(() => {
+    actions?.setServiceNodeSubtitleById?.(id, draft);
+    setEditing(null);
   }, [actions, id, draft]);
 
   const cancel = useCallback(() => {
+    setEditing(null);
+  }, []);
+
+  const startEditTitle = useCallback((e) => {
+    e.stopPropagation();
     setDraft(data.label ?? '');
-    setEditing(false);
+    setEditing('title');
   }, [data.label]);
 
-  const startEdit = useCallback(
+  const startEditSubtitle = useCallback(
     (e) => {
       e.stopPropagation();
-      setDraft(data.label ?? '');
-      setEditing(true);
+      setDraft(displaySubtitle);
+      setEditing('subtitle');
     },
-    [data.label]
+    [displaySubtitle]
   );
 
   const onIconDoubleClick = useCallback(
@@ -51,6 +72,34 @@ function ServiceNode({ id, data, selected }) {
       actions?.setParentForNode?.(id, parentId);
     },
     [actions, id]
+  );
+
+  const onKeyTitle = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitTitle();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [commitTitle, cancel]
+  );
+
+  const onKeySubtitle = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitSubtitle();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [commitSubtitle, cancel]
   );
 
   /** One handle per side; `ConnectionMode.Loose` on the canvas allows source↔source links. */
@@ -86,48 +135,64 @@ function ServiceNode({ id, data, selected }) {
         isConnectable
       />
       <div className="service-node__body">
-        <div
-          className="service-node__icon-wrap nodrag nopan"
-          style={{ background: fill }}
-          onDoubleClick={onIconDoubleClick}
-          title="Double-click to show or hide Parent (hierarchy)"
-        >
-          {spec.kind === 'url' ? (
-            <img className="service-node__icon-img" src={spec.url} alt="" draggable={false} />
-          ) : (
-            <svg className="service-node__icon-svg" viewBox="0 0 24 24" aria-hidden>
-              <path fill="#fff" d={spec.path} />
-            </svg>
-          )}
-        </div>
-        {editing ? (
-          <input
-            className="service-node__input nodrag"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commit();
-              }
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                cancel();
-              }
-            }}
-            autoFocus
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
+        <div className="service-node__row">
           <div
-            className="service-node__label nodrag nopan"
-            onDoubleClick={startEdit}
-            title="Double-click to rename"
+            className="service-node__icon-wrap nodrag nopan"
+            style={{ background: fill }}
+            onDoubleClick={onIconDoubleClick}
+            title="Double-click to show or hide Parent (hierarchy)"
           >
-            {data.label}
+            {spec.kind === 'url' ? (
+              <img className="service-node__icon-img" src={spec.url} alt="" draggable={false} />
+            ) : (
+              <svg className="service-node__icon-svg" viewBox="0 0 24 24" aria-hidden>
+                <path fill="#fff" d={spec.path} />
+              </svg>
+            )}
           </div>
-        )}
+          <div className="service-node__text-col">
+            {editing === 'title' ? (
+              <input
+                className="service-node__input service-node__input--title nodrag"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={onKeyTitle}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Node title"
+              />
+            ) : (
+              <div
+                className="service-node__title nodrag nopan"
+                onDoubleClick={startEditTitle}
+                title="Double-click to edit title"
+              >
+                {data.label ?? 'Untitled'}
+              </div>
+            )}
+            {editing === 'subtitle' ? (
+              <input
+                className="service-node__input service-node__input--subtitle nodrag"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitSubtitle}
+                onKeyDown={onKeySubtitle}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Node subtitle"
+              />
+            ) : (
+              <div
+                className={`service-node__subtitle nodrag nopan${displaySubtitle === registrySubtitle && !(typeof data.subtitle === 'string' && data.subtitle.trim() !== '') ? ' service-node__subtitle--default' : ''}`}
+                onDoubleClick={startEditSubtitle}
+                title="Double-click to edit subtitle"
+              >
+                {displaySubtitle}
+              </div>
+            )}
+          </div>
+        </div>
         {parentUiOpen ? (
           <div className="service-node__parent nodrag nopan" onDoubleClick={(e) => e.stopPropagation()}>
             <span className="service-node__parent-label">Parent</span>

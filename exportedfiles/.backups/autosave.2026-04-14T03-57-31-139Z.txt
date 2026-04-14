@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -143.5,
+        "y": 34.1015625
+      },
+      "data": {
+        "label": "suraj",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -143.75,
+        "y": 171.90234375
+      },
+      "data": {
+        "label": "Pod",
+        "iconKey": "k8s_pod"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "xy-edge__n-2pt-top-n-1pt-bottom",
+      "source": "n-2",
+      "target": "n-1",
+      "sourceHandle": "pt-top",
+      "targetHandle": "pt-bottom",
+      "type": "smoothstep",
+      "style": {
+        "stroke": "#64748b",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#e2e8f0",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#1a1f2e",
+        "fillOpacity": 0.95
+      }
+    }
+  ]
+}
