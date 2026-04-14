@@ -1,0 +1,114 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -792.0568229789143,
+        "y": -249.06868386296904
+      },
+      "data": {
+        "label": "Enterprise",
+        "iconKey": "sys_browser"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -792.1524201212441,
+        "y": -129.71787072657278
+      },
+      "data": {
+        "label": "Membership CMS",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-3",
+      "type": "service",
+      "position": {
+        "x": -627.661376828917,
+        "y": 17.8469400536395
+      },
+      "data": {
+        "label": "MTF Login Service",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-4",
+      "type": "service",
+      "position": {
+        "x": -808.725991426048,
+        "y": 18.6482979206911
+      },
+      "data": {
+        "label": "MTF Authorizer",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-5",
+      "type": "service",
+      "position": {
+        "x": -1056.8120603830534,
+        "y": -114.91989886731697
+      },
+      "data": {
+        "label": "enterprise.monotype.com-sql-server",
+        "iconKey": "sys_database"
+      }
+    },
+    {
+      "id": "n-6",
+      "type": "service",
+      "position": {
+        "x": -1381.2735020170746,
+        "y": 186.08030926765974
+      },
+      "data": {
+        "label": "Customer Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-7",
+      "type": "service",
+      "position": {
+        "x": -1231.6639334633985,
+        "y": 349.3788026531401
+      },
+      "data": {
+        "label": "User Management Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-8",
+      "type": "service",
+      "position": {
+        "x": -999.4221486244576,
+        "y": 349.63666461231367
+      },
+      "data": {
+        "label": "Mosaic Sync Service",
+        "iconKey": "k8s_pod"
+      }
+    },
+    {
+      "id": "n-9",
+      "type": "service",
+      "position": {
+        "x": -1354.5991445895886,
+        "y": 34.91811297643744
+      },
+      "data": {
+        "label": "redis-15901.mc1490-0.us-east-1-mz.ec2.cloud.rlrcp.com",
+        "iconKey": "redis"
+      }
+    }
+  ],
+  "edges": []
+}
