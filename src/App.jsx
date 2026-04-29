@@ -1,5 +1,6 @@
 import DiagramCanvas from './components/DiagramCanvas.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
+import { useHeaderToolbarHost } from './context/HeaderToolbarHostContext.jsx';
 import './App.css';
 
 function ThemeToggle() {
@@ -23,6 +24,7 @@ function ThemeToggle() {
 }
 
 export default function App() {
+  const { setMount } = useHeaderToolbarHost();
   return (
     <div className="app">
       <header className="app-header">
@@ -33,6 +35,7 @@ export default function App() {
             <p>Architecture &amp; dependency maps with cloud and Kubernetes icons</p>
           </div>
         </div>
+        <div className="app-header__toolbar-mount" ref={setMount} />
         <div className="app-header__actions">
           <ThemeToggle />
         </div>

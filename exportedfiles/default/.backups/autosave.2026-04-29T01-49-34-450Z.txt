@@ -1,0 +1,137 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -2605.9486789520106,
+        "y": -915.9735907132632
+      },
+      "data": {
+        "label": "asdfadsf",
+        "iconKey": "kubernetes",
+        "subtitle": "asdfadsf"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -2639.31921203465,
+        "y": -680.9462845437632
+      },
+      "data": {
+        "label": "Ingress",
+        "iconKey": "k8s_ingress"
+      }
+    },
+    {
+      "id": "n-3",
+      "type": "service",
+      "position": {
+        "x": -2439.31921203465,
+        "y": -680.9462845437632
+      },
+      "data": {
+        "label": "Service",
+        "iconKey": "k8s_svc"
+      }
+    },
+    {
+      "id": "n-4",
+      "type": "service",
+      "position": {
+        "x": -2239.31921203465,
+        "y": -680.9462845437632
+      },
+      "data": {
+        "label": "Deployment",
+        "iconKey": "k8s_deploy"
+      }
+    },
+    {
+      "id": "n-5",
+      "type": "service",
+      "position": {
+        "x": -2199.121261079382,
+        "y": -834.3330903312644
+      },
+      "data": {
+        "label": "Desktop",
+        "iconKey": "sys_desktop"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-n-1-n-2",
+      "source": "n-1",
+      "target": "n-2",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "e-n-2-n-3",
+      "source": "n-2",
+      "target": "n-3",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "e-n-3-n-4",
+      "source": "n-3",
+      "target": "n-4",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    }
+  ]
+}

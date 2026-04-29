@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -817.8168445200557,
+        "y": -601.8560419816461
+      },
+      "data": {
+        "label": "Desktop",
+        "iconKey": "sys_desktop"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -953.3030389978468,
+        "y": -486.9700875998934
+      },
+      "data": {
+        "label": "Web / browser",
+        "iconKey": "sys_browser"
+      }
+    },
+    {
+      "id": "n-3",
+      "type": "service",
+      "position": {
+        "x": -984.9957160686752,
+        "y": -632.7564021257037
+      },
+      "data": {
+        "label": "Web / browser",
+        "iconKey": "sys_browser"
+      }
+    }
+  ],
+  "edges": []
+}

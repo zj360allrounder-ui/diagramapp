@@ -40,10 +40,13 @@ Set `PORT=8080` (or any port) to change the server port. If you change it, updat
 
 With **`npm run dev:all`** or **`npm start`**, the right-hand **exportedfiles** section can:
 
-- **Save to folder** — writes `exportedfiles/<name>.txt` (pretty-printed **JSON** of the diagram).
+- **Workspace** — choose a folder name (e.g. `team-a`, `alice`); diagrams are stored under `exportedfiles/<workspace>/`. The choice is remembered in the browser. Use **`default`** for the usual folder; the server also lists legacy flat files at `exportedfiles/*.txt` when the workspace is **`default`** (first load prefers `exportedfiles/default/<name>.txt` if both exist).
+- **Save to folder** — writes `exportedfiles/<workspace>/<name>.txt` (pretty-printed **JSON** of the diagram).
 - **Load from folder** — reads that file back onto the canvas (same format as **Import** / **JSON** download).
 
 You can also open or copy those `.txt` files in an editor; they are normal JSON. **`npm run dev`** alone does not start the API, so use **`dev:all`** or **`npm start`** when you want server-side saves.
+
+**Switching workspaces:** In the right panel, edit **Workspace** (letters, numbers, `.`, `_`, `-`; blank means `default`). The diagram list for that workspace refreshes automatically after a short pause. Click **Save to folder** — the server creates `exportedfiles/<workspace>/` on disk if it does not exist yet, then writes `<Save as>.txt` inside it. Use **Refresh** if you want to reload the list immediately.
 
 ## Usage
 
@@ -65,7 +68,7 @@ You can also open or copy those `.txt` files in an editor; they are normal JSON.
 
 | Path | Role |
 |------|------|
-| `server.js` | Serves `dist/` after build; **REST API** under `/api` for `exportedfiles/*.txt` |
+| `server.js` | Serves `dist/` after build; **REST API** under `/api` for `exportedfiles/<workspace>/*.txt` |
 | `exportedfiles/` | Saved diagrams (`.txt` files containing JSON) |
 | `src/components/DiagramCanvas.jsx` | Canvas, export, import |
 | `src/lib/iconRegistry.js` | Palette groups and icon keys |

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -28,8 +29,12 @@ import { TEXT_NOTE_TAGS } from '../lib/textNoteTags.js';
 import { filterNodesByQuery, metaFieldsForExport, metaFieldsFromImport } from '../lib/nodeSearch.js';
 import { nodeMenuLabel, wouldCreateParentCycle } from '../lib/diagramParentUtils.js';
 import ParentHierarchyPicker from './ParentHierarchyPicker.jsx';
+import HeaderDiagramServerToolbar from './HeaderDiagramServerToolbar.jsx';
 import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
+import { useHeaderToolbarHost } from '../context/HeaderToolbarHostContext.jsx';
+import { useServerWorkspace } from '../context/ServerWorkspaceContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { clientSafeWorkspace } from '../lib/serverWorkspace.js';
 import './diagram.css';
 
 /** Minimum export size (UHD 4K) so raster output stays sharp when zoomed in viewers. */
@@ -304,6 +309,7 @@ function diagramDataToFlowState(data, theme) {
 
 function FlowWorkspace() {
   const { theme } = useTheme();
+  const { mount: headerToolbarMount } = useHeaderToolbarHost();
   const edgePalette = useMemo(() => getEdgePalette(theme), [theme]);
   const exportCanvasBg = theme === 'light' ? '#e2e8f0' : '#0c0e12';
 
@@ -329,6 +335,14 @@ function FlowWorkspace() {
   const [findQuery, setFindQuery] = useState('');
 
   const [serverFiles, setServerFiles] = useState([]);
+  const [serverWorkspaces, setServerWorkspaces] = useState(['default']);
+  const { serverWorkspace, setServerWorkspace } = useServerWorkspace();
+  const workspaceAutosaveRef = useRef(serverWorkspace);
+  useEffect(() => {
+    workspaceAutosaveRef.current = serverWorkspace;
+  }, [serverWorkspace]);
+  /** After first list sync, debounce refetches while the workspace field is edited. */
+  const workspaceListSyncCountRef = useRef(0);
   const [serverStem, setServerStem] = useState('my-diagram');
   const [loadStem, setLoadStem] = useState('');
   const [serverMsg, setServerMsg] = useState('');
@@ -361,11 +375,13 @@ function FlowWorkspace() {
     if (!autosaveLocalEnabled) return;
     try {
       const { nodes: n, edges: ed } = nodesEdgesAutosaveRef.current;
+      const ws = clientSafeWorkspace(workspaceAutosaveRef.current) || 'default';
       localStorage.setItem(
         DRAFT_STORAGE_KEY,
         JSON.stringify({
           savedAt: Date.now(),
           name: AUTOSAVE_DIAGRAM_NAME,
+          workspace: ws,
           diagram: serializeDiagram(n, ed),
         })
       );
@@ -379,11 +395,13 @@ function FlowWorkspace() {
     if (!autosaveLocalEnabled) return;
     const t = window.setTimeout(() => {
       try {
+        const ws = clientSafeWorkspace(serverWorkspace) || 'default';
         localStorage.setItem(
           DRAFT_STORAGE_KEY,
           JSON.stringify({
             savedAt: Date.now(),
             name: AUTOSAVE_DIAGRAM_NAME,
+            workspace: ws,
             diagram: serializeDiagram(nodes, edges),
           })
         );
@@ -393,7 +411,7 @@ function FlowWorkspace() {
       }
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [nodes, edges, autosaveLocalEnabled]);
+  }, [nodes, edges, serverWorkspace, autosaveLocalEnabled]);
 
   useEffect(() => {
     const onBeforeUnload = (e) => {
@@ -452,12 +470,20 @@ function FlowWorkspace() {
         typeof parsed.name === 'string' && parsed.name.trim()
           ? parsed.name.trim()
           : AUTOSAVE_DIAGRAM_NAME;
+      const draftWs =
+        typeof parsed.workspace === 'string' && parsed.workspace.trim()
+          ? clientSafeWorkspace(parsed.workspace.trim())
+          : null;
+      if (draftWs) {
+        setServerWorkspace(draftWs);
+      }
       applyDiagramData(diagram);
       setServerStem(name);
       setLoadStem(name);
       setAutosaveRestoreNotice({
         savedAt: Number(parsed.savedAt) || Date.now(),
         name,
+        ...(draftWs ? { workspace: draftWs } : {}),
       });
       if (fromLegacyDraft) {
         try {
@@ -469,7 +495,7 @@ function FlowWorkspace() {
     } catch {
       /* ignore */
     }
-  }, [applyDiagramData]);
+  }, [applyDiagramData, setServerWorkspace]);
 
   const dismissAutosaveNotice = useCallback(() => setAutosaveRestoreNotice(null), []);
 
@@ -1162,23 +1188,94 @@ function FlowWorkspace() {
     }
   };
 
-  const refreshServerFiles = useCallback(async () => {
+  const refreshWorkspaces = useCallback(async () => {
     try {
-      const r = await fetch('/api/diagrams');
+      const r = await fetch('/api/workspaces', { cache: 'no-store' });
+      if (!r.ok) throw new Error('Could not list workspaces');
+      const raw = await r.text();
+      if (!raw?.trim()) throw new Error('empty body');
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list) || !list.length) {
+        setServerWorkspaces(['default']);
+        return;
+      }
+      const normalized = [
+        ...new Set(list.filter((x) => typeof x === 'string' && String(x).trim())),
+      ].sort((a, b) => {
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        return a.localeCompare(b);
+      });
+      if (!normalized.includes('default')) normalized.unshift('default');
+      setServerWorkspaces(normalized);
+    } catch {
+      setServerWorkspaces((prev) =>
+        Array.isArray(prev) && prev.length > 0 ? prev : ['default']
+      );
+    }
+  }, []);
+
+  const refreshServerFiles = useCallback(async () => {
+    const ws = clientSafeWorkspace(serverWorkspace);
+    if (!ws) {
+      setServerFiles([]);
+      setServerMsg('Invalid workspace — pick another workspace and refresh.');
+      return;
+    }
+    try {
+      const r = await fetch(`/api/diagrams?workspace=${encodeURIComponent(ws)}`, {
+        cache: 'no-store',
+      });
       if (!r.ok) throw new Error('Could not list saved diagrams');
-      setServerFiles(await r.json());
+      const raw = await r.text();
+      if (!raw?.trim()) throw new Error('empty body');
+      const rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) throw new Error('invalid list');
+      setServerFiles(rows);
       setServerMsg((m) => (m.startsWith('Server unavailable') ? '' : m));
     } catch {
       setServerFiles([]);
       setServerMsg('Server unavailable — run npm run dev:all or npm start, then refresh.');
     }
-  }, []);
+  }, [serverWorkspace]);
+
+  const refreshAllServerLists = useCallback(async () => {
+    await refreshWorkspaces();
+    await refreshServerFiles();
+  }, [refreshWorkspaces, refreshServerFiles]);
 
   useEffect(() => {
-    refreshServerFiles();
-  }, [refreshServerFiles]);
+    void refreshWorkspaces();
+  }, [refreshWorkspaces]);
+
+  useEffect(() => {
+    const ws = clientSafeWorkspace(serverWorkspace);
+    if (!ws) {
+      setServerFiles([]);
+      setServerMsg('Invalid workspace — pick another workspace.');
+      return undefined;
+    }
+    const isFirstListSync = workspaceListSyncCountRef.current === 0;
+    workspaceListSyncCountRef.current += 1;
+    const delayMs = isFirstListSync ? 0 : 400;
+    const t = setTimeout(() => {
+      void refreshServerFiles();
+    }, delayMs);
+    return () => clearTimeout(t);
+  }, [serverWorkspace, refreshServerFiles]);
+
+  useEffect(() => {
+    setLoadStem('');
+  }, [serverWorkspace]);
 
   const saveDiagramToServer = async () => {
+    const ws = clientSafeWorkspace(serverWorkspace);
+    if (!ws) {
+      alert(
+        'Invalid workspace: use letters, numbers, dot, dash, underscore (max 64 chars). Leave empty for default.'
+      );
+      return;
+    }
     const stem = clientSafeStem(serverStem);
     if (!stem) {
       alert('Use a valid name: start with a letter or number; only letters, numbers, . _ -');
@@ -1186,6 +1283,7 @@ function FlowWorkspace() {
     }
     const payload = (withReplace) => ({
       name: stem,
+      workspace: ws,
       diagram: serializeDiagram(nodes, edges, { omitServiceParentHierarchy: true }),
       ...(withReplace ? { replace: true } : {}),
     });
@@ -1199,10 +1297,10 @@ function FlowWorkspace() {
       let j = await r.json().catch(() => ({}));
       if (r.status === 409 && j.exists) {
         const ok = window.confirm(
-          `exportedfiles/${stem}.txt already exists.\n\nReplace it? The current file will be copied to exportedfiles/.backups/ first.\n\nOK — replace with backup\nCancel — do not save`
+          `Server file "${stem}.txt" in workspace "${ws}" already exists.\n\nReplace it? The current file will be backed up first.\n\nOK — replace with backup\nCancel — do not save`
         );
         if (!ok) {
-          setServerMsg(`Save cancelled — ${stem}.txt was not changed.`);
+          setServerMsg(`Save cancelled — ${ws}/${stem}.txt was not changed.`);
           return;
         }
         r = await fetch('/api/diagrams', {
@@ -1213,12 +1311,17 @@ function FlowWorkspace() {
         j = await r.json().catch(() => ({}));
       }
       if (!r.ok) throw new Error(j.error || r.statusText);
-      const savedPath = `exportedfiles/${stem}.txt`;
+      const savedPath = j.path
+        ? String(j.path).replace(/^exportedfiles\//, '')
+        : `${ws}/${stem}.txt`;
+      const backupShown = j.backupPath
+        ? String(j.backupPath).replace(/^exportedfiles\//, '')
+        : '';
       setServerMsg(
-        j.backupPath ? `Saved ${savedPath} (previous copy: ${j.backupPath})` : `Saved ${savedPath}`
+        backupShown ? `Saved ${savedPath} (previous copy: ${backupShown})` : `Saved ${savedPath}`
       );
       commitCheckpoint(nodes, edges);
-      await refreshServerFiles();
+      await refreshAllServerLists();
       setLoadStem(stem);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed');
@@ -1228,6 +1331,13 @@ function FlowWorkspace() {
   };
 
   const loadDiagramFromServer = async () => {
+    const ws = clientSafeWorkspace(serverWorkspace);
+    if (!ws) {
+      alert(
+        'Invalid workspace: use letters, numbers, dot, dash, underscore (max 64 chars). Leave empty for default.'
+      );
+      return;
+    }
     const stem = clientSafeStem(loadStem);
     if (!stem) {
       alert('Pick a saved file or enter a valid name.');
@@ -1241,7 +1351,9 @@ function FlowWorkspace() {
     }
     setServerBusy(true);
     try {
-      const r = await fetch(`/api/diagrams/${encodeURIComponent(stem)}`);
+      const r = await fetch(
+        `/api/diagrams/${encodeURIComponent(stem)}?workspace=${encodeURIComponent(ws)}`
+      );
       const text = await r.text();
       if (!r.ok) {
         let msg = text;
@@ -1254,7 +1366,7 @@ function FlowWorkspace() {
       }
       const data = parseDiagramJson(text);
       applyDiagramData(data);
-      setServerMsg(`Loaded exportedfiles/${stem}.txt`);
+      setServerMsg(`Loaded ${ws}/${stem}.txt from server`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Load failed');
     } finally {
@@ -1264,11 +1376,35 @@ function FlowWorkspace() {
 
   return (
     <DiagramActionsContext.Provider value={diagramActions}>
+      {headerToolbarMount
+        ? createPortal(
+            <HeaderDiagramServerToolbar
+              serverStem={serverStem}
+              setServerStem={setServerStem}
+              loadStem={loadStem}
+              setLoadStem={setLoadStem}
+              serverFiles={serverFiles}
+              serverWorkspaces={serverWorkspaces}
+              serverBusy={serverBusy}
+              serverMsg={serverMsg}
+              onSave={saveDiagramToServer}
+              onLoad={loadDiagramFromServer}
+              onRefresh={refreshAllServerLists}
+            />,
+            headerToolbarMount
+          )
+        : null}
       <div className="diagram-workspace">
         {autosaveRestoreNotice ? (
           <div className="diagram-draft-banner diagram-draft-banner--notice" role="status">
             <p className="diagram-draft-banner__text">
               Restored browser autosave <strong>{autosaveRestoreNotice.name}</strong>
+              {autosaveRestoreNotice.workspace ? (
+                <>
+                  {' · workspace '}
+                  <strong>{autosaveRestoreNotice.workspace}</strong>
+                </>
+              ) : null}
               {' · '}
               <time dateTime={new Date(autosaveRestoreNotice.savedAt).toISOString()}>
                 {new Date(autosaveRestoreNotice.savedAt).toLocaleString()}
@@ -1420,7 +1556,7 @@ function FlowWorkspace() {
             id="diagram-inspector-toggle"
             className="diagram-inspector-toggle"
             onClick={() => setInspectorOpen((o) => !o)}
-            title={inspectorOpen ? 'Hide side panel (more room for the canvas)' : 'Show Selection & exportedfiles'}
+            title={inspectorOpen ? 'Hide side panel (more room for the canvas)' : 'Show Selection panel'}
             aria-expanded={inspectorOpen}
             aria-controls="diagram-inspector-panel"
           >
@@ -1657,11 +1793,11 @@ function FlowWorkspace() {
           )}
 
           <div className="diagram-local-draft">
-            <h3 className="diagram-server-store__title">Local draft</h3>
-            <p className="diagram-server-store__intro">
+            <h3 className="diagram-local-draft__title">Local draft</h3>
+            <p className="diagram-local-draft__intro">
               Each snapshot is tagged <code>{AUTOSAVE_DIAGRAM_NAME}</code> (~
-              {Math.round(AUTOSAVE_DEBOUNCE_MS / 1000)}s after you change the graph). Refreshing the page reloads
-              that draft automatically; <strong>Save to folder</strong> writes <code>exportedfiles/</code> on disk.
+              {Math.round(AUTOSAVE_DEBOUNCE_MS / 1000)}s after you change the graph) and includes the current{' '}
+              <strong>Workspace</strong> from the header. Refreshing the page restores both automatically.
             </p>
             <label className="diagram-inspector__field diagram-local-draft__row">
               <span>Autosave draft locally</span>
@@ -1684,68 +1820,6 @@ function FlowWorkspace() {
                 </span>
               ) : null}
             </p>
-          </div>
-
-          <div className="diagram-server-store">
-            <h3 className="diagram-server-store__title">exportedfiles</h3>
-            <p className="diagram-server-store__intro">
-              Diagrams are stored as <code>.txt</code> files (JSON) under <code>exportedfiles/</code> on the
-              machine running the server.
-            </p>
-            <label className="diagram-inspector__field">
-              <span>Save as</span>
-              <input
-                type="text"
-                value={serverStem}
-                onChange={(e) => setServerStem(e.target.value)}
-                placeholder="my-diagram"
-                disabled={serverBusy}
-              />
-            </label>
-            <button
-              type="button"
-              className="diagram-server-store__btn"
-              onClick={saveDiagramToServer}
-              disabled={serverBusy}
-            >
-              Save to folder
-            </button>
-            <label className="diagram-inspector__field diagram-server-store__load">
-              <span>Load saved</span>
-              <input
-                type="text"
-                list="diagram-saved-list"
-                value={loadStem}
-                onChange={(e) => setLoadStem(e.target.value)}
-                placeholder="name or pick from list"
-                disabled={serverBusy}
-              />
-              <datalist id="diagram-saved-list">
-                {serverFiles.map((f) => (
-                  <option key={f.stem} value={f.stem} />
-                ))}
-              </datalist>
-            </label>
-            <div className="diagram-server-store__row">
-              <button
-                type="button"
-                className="diagram-server-store__btn"
-                onClick={loadDiagramFromServer}
-                disabled={serverBusy}
-              >
-                Load from folder
-              </button>
-              <button
-                type="button"
-                className="diagram-server-store__btn diagram-server-store__btn--ghost"
-                onClick={refreshServerFiles}
-                disabled={serverBusy}
-                title="Refresh list from server"
-              >
-                Refresh
-              </button>
-            </div>
-            {serverMsg ? <p className="diagram-server-store__msg">{serverMsg}</p> : null}
           </div>
 
           <div className="diagram-inspector__help">
@@ -1786,12 +1860,14 @@ function FlowWorkspace() {
               <li>
                 Local autosave reloads after a refresh (banner shows <strong>{AUTOSAVE_DIAGRAM_NAME}</strong> and
                 pre-fills Save as). Closing the tab with pending edits can still show a browser warning.{' '}
-                <strong>Clear</strong>, <strong>Import</strong>, and <strong>Load from folder</strong> confirm when
+                <strong>Clear</strong>, <strong>Import</strong>, and <strong>Load</strong> (header) confirm when
                 you would lose changes.
               </li>
               <li>
-                For server save/load, run <code>npm run dev:all</code> (Vite + API) or{' '}
-                <code>npm start</code> after build.
+                For server save/load, run <code>npm run dev:all</code> (Vite + API) or <code>npm start</code> after
+                build. Use the header: <strong>Workspace</strong> dropdown (folders on disk; <strong>+ New
+                workspace…</strong> to add one), then <strong>Save</strong> / <strong>Load</strong>. ↻ refreshes both
+                lists.
               </li>
             </ul>
           </div>

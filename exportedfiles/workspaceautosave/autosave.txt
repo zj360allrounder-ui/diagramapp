@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": 148.5,
+        "y": 103.3046875
+      },
+      "data": {
+        "label": "Web / browser",
+        "iconKey": "sys_browser"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": 191.75,
+        "y": 214.20703125
+      },
+      "data": {
+        "label": "Desktop",
+        "iconKey": "sys_desktop"
+      }
+    }
+  ],
+  "edges": []
+}

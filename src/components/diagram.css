@@ -825,83 +825,23 @@
   line-height: 1.45;
 }
 
-.diagram-server-store {
-  margin-top: 1.1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--jd-border);
-}
-
-.diagram-server-store__title {
+.diagram-local-draft__title {
   margin: 0 0 0.35rem;
   font-size: 0.8125rem;
   font-weight: 600;
 }
 
-.diagram-server-store__intro {
+.diagram-local-draft__intro {
   margin: 0 0 0.65rem;
   font-size: 0.6875rem;
   line-height: 1.45;
   color: var(--jd-text-muted);
 }
 
-.diagram-server-store__intro code {
+.diagram-local-draft__intro code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.65rem;
   color: var(--jd-text-pale);
-}
-
-.diagram-server-store__load {
-  margin-top: 0.65rem;
-}
-
-.diagram-server-store__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.4rem;
-}
-
-.diagram-server-store__btn {
-  flex: 1;
-  min-width: 0;
-  padding: 0.4rem 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border: 1px solid var(--jd-border-btn);
-  border-radius: 6px;
-  background: var(--jd-bg-btn);
-  color: var(--jd-text-secondary);
-  cursor: pointer;
-}
-
-.diagram-server-store__btn:hover:not(:disabled) {
-  background: var(--jd-bg-btn-hover);
-}
-
-.diagram-server-store__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.diagram-server-store__btn--ghost {
-  flex: 0 0 auto;
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: 500;
-  font-size: 0.75rem;
-  background: transparent;
-  border-color: var(--jd-border-input);
-  color: var(--jd-text-muted);
-}
-
-.diagram-server-store__msg {
-  margin: 0.55rem 0 0;
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: var(--jd-success);
-  word-break: break-word;
 }
 
 .diagram-inspector__help {
@@ -994,7 +934,7 @@
 .text-node__body {
   min-width: 180px;
   max-width: 320px;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 1.75rem 0.5rem 0.65rem;
   border-radius: 8px;
   background: var(--jd-bg-panel);
   border: 1px solid var(--jd-border-input);
@@ -1067,7 +1007,8 @@
 .service-node__body {
   min-width: 180px;
   max-width: 280px;
-  padding: 0.5rem 0.65rem 0.55rem;
+  /* Extra right padding: easy grab strip (title/subtitle use nodrag) */
+  padding: 0.5rem 1.75rem 0.55rem 0.65rem;
   border-radius: 10px;
   background: linear-gradient(180deg, var(--jd-node-grad-top) 0%, var(--jd-node-grad-bottom) 100%);
   border: 1px solid var(--jd-border-node);
@@ -1084,10 +1025,13 @@
 .service-node__text-col {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   padding-top: 0.05rem;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
 }
 
 .service-node--selected {
@@ -1137,17 +1081,25 @@
 }
 
 .service-node__title {
+  min-width: 0;
+  max-width: 100%;
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
   color: var(--jd-text);
 }
 
 .service-node__subtitle {
+  min-width: 0;
+  max-width: 100%;
   font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
   color: var(--jd-text-dim);
 }
@@ -1172,6 +1124,8 @@
 .service-node__input {
   display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   padding: 0.3rem 0.35rem;
   line-height: 1.3;

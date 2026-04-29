@@ -1,0 +1,136 @@
+{
+  "version": 2,
+  "nodes": [
+    {
+      "id": "n-1",
+      "type": "service",
+      "position": {
+        "x": -920.4747076653139,
+        "y": -366.6086492745633
+      },
+      "data": {
+        "label": "Web / browser",
+        "iconKey": "sys_browser"
+      }
+    },
+    {
+      "id": "n-2",
+      "type": "service",
+      "position": {
+        "x": -1162.4747076653139,
+        "y": -430.2492742745633
+      },
+      "data": {
+        "label": "API / producer",
+        "iconKey": "amazonapigateway"
+      }
+    },
+    {
+      "id": "n-3",
+      "type": "service",
+      "position": {
+        "x": -922.4747076653139,
+        "y": -430.2492742745633
+      },
+      "data": {
+        "label": "Event bus",
+        "iconKey": "kafka"
+      }
+    },
+    {
+      "id": "n-4",
+      "type": "service",
+      "position": {
+        "x": -682.4747076653139,
+        "y": -510.2492742745633
+      },
+      "data": {
+        "label": "Consumer",
+        "iconKey": "amazonec2"
+      }
+    },
+    {
+      "id": "n-5",
+      "type": "service",
+      "position": {
+        "x": -682.4747076653139,
+        "y": -350.2492742745633
+      },
+      "data": {
+        "label": "Data store",
+        "iconKey": "amazons3"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-n-2-n-3",
+      "source": "n-2",
+      "target": "n-3",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "publish",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "e-n-3-n-4",
+      "source": "n-3",
+      "target": "n-4",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "subscribe",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    },
+    {
+      "id": "e-n-4-n-5",
+      "source": "n-4",
+      "target": "n-5",
+      "sourceHandle": "pt-bottom",
+      "targetHandle": "pt-top",
+      "type": "smoothstep",
+      "label": "write",
+      "style": {
+        "stroke": "#475569",
+        "strokeWidth": 2,
+        "strokeDasharray": "none"
+      },
+      "labelStyle": {
+        "fill": "#1e293b",
+        "fontSize": 11,
+        "fontWeight": 500
+      },
+      "labelBgStyle": {
+        "fill": "#ffffff",
+        "fillOpacity": 0.95
+      }
+    }
+  ]
+}
