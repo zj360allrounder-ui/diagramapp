@@ -3,6 +3,12 @@ import path from 'path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
+import {
+  loadAuthUsers,
+  loginHandler,
+  meHandler,
+  requireAuth,
+} from './server/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -10,7 +16,15 @@ const exportDir = path.join(__dirname, 'exportedfiles');
 const dist = path.join(__dirname, 'dist');
 const indexHtml = path.join(dist, 'index.html');
 
+loadAuthUsers();
+
 app.use(express.json({ limit: '15mb' }));
+
+app.post('/api/auth/login', loginHandler);
+app.get('/api/auth/me', requireAuth, meHandler);
+
+/** Protect diagram/workspace APIs (login is registered above and stays public). */
+app.use('/api', requireAuth);
 
 /** @returns {string|null} stem without extension */
 function safeStem(name) {

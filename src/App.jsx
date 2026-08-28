@@ -1,4 +1,6 @@
 import DiagramCanvas from './components/DiagramCanvas.jsx';
+import LoginPage from './components/LoginPage.jsx';
+import { useAuth } from './context/AuthContext.jsx';
 import { useTheme } from './context/ThemeContext.jsx';
 import { useHeaderToolbarHost } from './context/HeaderToolbarHostContext.jsx';
 import './App.css';
@@ -23,8 +25,17 @@ function ThemeToggle() {
   );
 }
 
-export default function App() {
+function AuthBootSplash() {
+  return (
+    <div className="auth-boot">
+      <p>Checking session…</p>
+    </div>
+  );
+}
+
+function StudioShell() {
   const { setMount } = useHeaderToolbarHost();
+  const { user, logout } = useAuth();
   return (
     <div className="app">
       <header className="app-header">
@@ -37,6 +48,14 @@ export default function App() {
         </div>
         <div className="app-header__toolbar-mount" ref={setMount} />
         <div className="app-header__actions">
+          {user?.username ? (
+            <span className="app-header__user" title="Signed in">
+              {user.username}
+            </span>
+          ) : null}
+          <button type="button" className="theme-toggle" onClick={logout} title="Sign out">
+            Sign out
+          </button>
           <ThemeToggle />
         </div>
       </header>
@@ -45,4 +64,16 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  const { isAuthenticated, bootstrapping } = useAuth();
+
+  if (bootstrapping) {
+    return <AuthBootSplash />;
+  }
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+  return <StudioShell />;
 }

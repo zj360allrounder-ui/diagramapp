@@ -1067,6 +1067,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.service-node__icon-wrap--dragging {
+  cursor: grabbing;
 }
 
 .service-node__icon-svg {

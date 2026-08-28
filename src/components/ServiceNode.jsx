@@ -1,8 +1,11 @@
-import { memo, useCallback, useEffect, useState } from 'react';
-import { Handle, Position, useStore } from '@xyflow/react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { Handle, Position, useReactFlow, useStore } from '@xyflow/react';
 import { resolveIcon } from '../lib/iconRegistry.js';
 import { useDiagramActions } from '../context/DiagramActionsContext.jsx';
 import ParentHierarchyPicker from './ParentHierarchyPicker.jsx';
+
+const ICON_LONG_PRESS_MS = 320;
+const ICON_LONG_PRESS_MOVE_CANCEL_PX = 6;
 
 /** No `subtitle` key → show registry title; `subtitle: ''` → hide row; non-empty → custom. */
 function subtitlePresentation(data, registryTitle) {
@@ -29,6 +32,7 @@ function subtitlePresentation(data, registryTitle) {
 
 function ServiceNode({ id, data, selected }) {
   const actions = useDiagramActions();
+  const { getNode, setNodes, screenToFlowPosition } = useReactFlow();
   const nodes = useStore((s) => s.nodes);
   const spec = resolveIcon(data.iconKey);
   const fill = `#${spec.hex}`;
@@ -38,8 +42,31 @@ function ServiceNode({ id, data, selected }) {
 
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState('');
+  const [iconDragging, setIconDragging] = useState(false);
+
+  const iconWrapRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const iconPointerRef = useRef(null);
+  const iconDragActiveRef = useRef(false);
+  const suppressIconClickRef = useRef(false);
 
   const parentUiOpen = actions?.serviceParentUiNodeId === id;
+
+  const clearIconLongPress = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const endIconDrag = useCallback(() => {
+    clearIconLongPress();
+    iconDragActiveRef.current = false;
+    iconPointerRef.current = null;
+    setIconDragging(false);
+  }, [clearIconLongPress]);
+
+  useEffect(() => () => clearIconLongPress(), [clearIconLongPress]);
 
   useEffect(() => {
     if (editing === 'title') {
@@ -82,10 +109,103 @@ function ServiceNode({ id, data, selected }) {
   const onIconDoubleClick = useCallback(
     (e) => {
       e.stopPropagation();
+      e.preventDefault();
+      if (suppressIconClickRef.current) {
+        suppressIconClickRef.current = false;
+        return;
+      }
       actions?.toggleServiceParentUi?.(id);
     },
     [actions, id]
   );
+
+  const onIconPointerDown = useCallback(
+    (e) => {
+      if (e.button !== 0) return;
+      const node = getNode(id);
+      if (!node) return;
+
+      clearIconLongPress();
+      iconDragActiveRef.current = false;
+      iconPointerRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        originX: node.position.x,
+        originY: node.position.y,
+      };
+
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        const info = iconPointerRef.current;
+        if (!info) return;
+        iconDragActiveRef.current = true;
+        setIconDragging(true);
+        setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === id })));
+        try {
+          iconWrapRef.current?.setPointerCapture(info.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }, ICON_LONG_PRESS_MS);
+    },
+    [clearIconLongPress, getNode, id, setNodes]
+  );
+
+  const onIconPointerMove = useCallback(
+    (e) => {
+      const info = iconPointerRef.current;
+      if (!info) return;
+
+      if (!iconDragActiveRef.current) {
+        const dx = e.clientX - info.startClientX;
+        const dy = e.clientY - info.startClientY;
+        if (dx * dx + dy * dy > ICON_LONG_PRESS_MOVE_CANCEL_PX * ICON_LONG_PRESS_MOVE_CANCEL_PX) {
+          clearIconLongPress();
+        }
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      const start = screenToFlowPosition({ x: info.startClientX, y: info.startClientY });
+      const curr = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const nextX = info.originX + (curr.x - start.x);
+      const nextY = info.originY + (curr.y - start.y);
+      if (nextX !== info.originX || nextY !== info.originY) {
+        suppressIconClickRef.current = true;
+      }
+      setNodes((nds) =>
+        nds.map((n) => (n.id === id ? { ...n, position: { x: nextX, y: nextY } } : n))
+      );
+    },
+    [clearIconLongPress, id, screenToFlowPosition, setNodes]
+  );
+
+  const onIconPointerUp = useCallback(
+    (e) => {
+      const wasDragging = iconDragActiveRef.current;
+      if (wasDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          iconWrapRef.current?.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      } else {
+        // Allow a real double-click; only suppress after an actual long-press drag.
+        suppressIconClickRef.current = false;
+      }
+      endIconDrag();
+    },
+    [endIconDrag]
+  );
+
+  const onIconPointerCancel = useCallback(() => {
+    endIconDrag();
+    suppressIconClickRef.current = false;
+  }, [endIconDrag]);
 
   const onParentChange = useCallback(
     (parentId) => {
@@ -157,10 +277,15 @@ function ServiceNode({ id, data, selected }) {
       <div className="service-node__body">
         <div className="service-node__row">
           <div
-            className="service-node__icon-wrap nodrag nopan"
+            ref={iconWrapRef}
+            className={`service-node__icon-wrap nodrag nopan${iconDragging ? ' service-node__icon-wrap--dragging' : ''}`}
             style={{ background: fill }}
+            onPointerDown={onIconPointerDown}
+            onPointerMove={onIconPointerMove}
+            onPointerUp={onIconPointerUp}
+            onPointerCancel={onIconPointerCancel}
             onDoubleClick={onIconDoubleClick}
-            title="Double-click to show or hide Parent (hierarchy)"
+            title="Hold to drag · Double-click for Parent"
           >
             {spec.kind === 'url' ? (
               <img className="service-node__icon-img" src={spec.url} alt="" draggable={false} />

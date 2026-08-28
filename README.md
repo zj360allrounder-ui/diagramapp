@@ -36,6 +36,44 @@ npm start
 
 Set `PORT=8080` (or any port) to change the server port. If you change it, update the `proxy.target` in `vite.config.js` for `dev:all`.
 
+## Authentication (JWT)
+
+The studio UI and diagram APIs require a signed-in user.
+
+1. Copy the example users file and edit passwords:
+
+```bash
+cp auth-users.example.json auth-users.json
+```
+
+2. Start with the API (`npm run dev:all` or `npm start`). Open the app and sign in.
+
+**Default (no `auth-users.json`):** username `admin`, password `changeme`  
+(override with `AUTH_USERNAME` / `AUTH_PASSWORD`).
+
+**Office setup:**
+
+| Variable | Purpose |
+|----------|---------|
+| `JWT_SECRET` | Required in production — long random string used to sign tokens |
+| `JWT_EXPIRES_IN` | Token lifetime (default `12h`) |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | Single default user when `auth-users.json` is absent |
+
+`auth-users.json` example:
+
+```json
+[
+  { "username": "alice", "password": "choose-a-strong-password" },
+  { "username": "bob", "password": "another-strong-password" }
+]
+```
+
+API:
+
+- `POST /api/auth/login` — `{ "username", "password" }` → `{ token, user }`
+- `GET /api/auth/me` — `Authorization: Bearer <token>` → current user
+- All `/api/workspaces` and `/api/diagrams` routes require the same Bearer token
+
 ## Persist diagrams (`exportedfiles/`)
 
 With **`npm run dev:all`** or **`npm start`**, the right-hand **exportedfiles** section can:

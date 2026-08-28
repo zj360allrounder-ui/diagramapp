@@ -34,6 +34,7 @@ import { DiagramActionsContext } from '../context/DiagramActionsContext.jsx';
 import { useHeaderToolbarHost } from '../context/HeaderToolbarHostContext.jsx';
 import { useServerWorkspace } from '../context/ServerWorkspaceContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { clientSafeWorkspace } from '../lib/serverWorkspace.js';
 import './diagram.css';
 
@@ -309,6 +310,7 @@ function diagramDataToFlowState(data, theme) {
 
 function FlowWorkspace() {
   const { theme } = useTheme();
+  const { authFetch } = useAuth();
   const { mount: headerToolbarMount } = useHeaderToolbarHost();
   const edgePalette = useMemo(() => getEdgePalette(theme), [theme]);
   const exportCanvasBg = theme === 'light' ? '#e2e8f0' : '#0c0e12';
@@ -1190,7 +1192,7 @@ function FlowWorkspace() {
 
   const refreshWorkspaces = useCallback(async () => {
     try {
-      const r = await fetch('/api/workspaces', { cache: 'no-store' });
+      const r = await authFetch('/api/workspaces', { cache: 'no-store' });
       if (!r.ok) throw new Error('Could not list workspaces');
       const raw = await r.text();
       if (!raw?.trim()) throw new Error('empty body');
@@ -1213,7 +1215,7 @@ function FlowWorkspace() {
         Array.isArray(prev) && prev.length > 0 ? prev : ['default']
       );
     }
-  }, []);
+  }, [authFetch]);
 
   const refreshServerFiles = useCallback(async () => {
     const ws = clientSafeWorkspace(serverWorkspace);
@@ -1223,7 +1225,7 @@ function FlowWorkspace() {
       return;
     }
     try {
-      const r = await fetch(`/api/diagrams?workspace=${encodeURIComponent(ws)}`, {
+      const r = await authFetch(`/api/diagrams?workspace=${encodeURIComponent(ws)}`, {
         cache: 'no-store',
       });
       if (!r.ok) throw new Error('Could not list saved diagrams');
@@ -1237,7 +1239,7 @@ function FlowWorkspace() {
       setServerFiles([]);
       setServerMsg('Server unavailable — run npm run dev:all or npm start, then refresh.');
     }
-  }, [serverWorkspace]);
+  }, [authFetch, serverWorkspace]);
 
   const refreshAllServerLists = useCallback(async () => {
     await refreshWorkspaces();
@@ -1289,7 +1291,7 @@ function FlowWorkspace() {
     });
     setServerBusy(true);
     try {
-      let r = await fetch('/api/diagrams', {
+      let r = await authFetch('/api/diagrams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload(false)),
@@ -1303,7 +1305,7 @@ function FlowWorkspace() {
           setServerMsg(`Save cancelled — ${ws}/${stem}.txt was not changed.`);
           return;
         }
-        r = await fetch('/api/diagrams', {
+        r = await authFetch('/api/diagrams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload(true)),
@@ -1351,7 +1353,7 @@ function FlowWorkspace() {
     }
     setServerBusy(true);
     try {
-      const r = await fetch(
+      const r = await authFetch(
         `/api/diagrams/${encodeURIComponent(stem)}?workspace=${encodeURIComponent(ws)}`
       );
       const text = await r.text();
